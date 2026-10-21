@@ -1,0 +1,4 @@
+# Keep LF in the repo and working tree: container scripts break with CRLF.
+* text=auto eol=lf
+*.png binary
+*.ico binary
