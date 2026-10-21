@@ -28,7 +28,7 @@ Implementation status: M0 and M1 complete and verified
 | Stop api-1 in demo | all reads 200 via api-2; api-1 logged graceful "Shutting down on SIGTERM", exit 143 in 1.6 s |
 | `pnpm demo:down` | replicas removed; proxy back to dev config |
 | `pnpm infra:down` then `infra:up` | containers removed, 4 volumes kept, probe row survived |
-| `pnpm secrets:scan` | see final M1 commit report (run after commit) |
+| `pnpm secrets:scan` (after commit 7879cb2) | gitleaks v8.30.1: 3 commits scanned, no leaks found |
 
 ## Not run / known gaps
 
