@@ -1,0 +1,14 @@
+# Keep secrets, local data, and host build output out of image build context.
+**/node_modules
+**/dist
+**/.next
+**/*.tsbuildinfo
+**/coverage
+.env
+.env.*
+!.env.example
+.local
+.git
+docker-data
+dumps
+backups

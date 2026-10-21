@@ -1,0 +1,15 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Supply-chain guard: never install a version published less than 7 days ago (minutes).
+minimumReleaseAge: 10080
+
+# Only these dependencies may run install scripts; anything else fails the install for review.
+allowBuilds:
+  '@swc/core': true
+  # Only re-verifies a native binary that pnpm already installs via optionalDependencies.
+  unrs-resolver: false
+
+# Write exact versions to package.json (the lockfile pins transitive ones).
+saveExact: true

@@ -88,8 +88,10 @@ Deliver small working milestones; do not generate the entire application at once
 
 ## Commands and hooks
 
-- This pack contains documentation only. No pnpm/Compose application scripts exist yet.
-- M1 implements the target command contract in plan.md and replaces this note with verified commands.
+- Verified in M1 (root package.json): local:setup, infra:up/down/ps, dev, build, lint, typecheck, format/format:check, test:unit, test:integration (needs infra:up), verify, secrets:scan, demo:up/down.
+- Not yet implemented: db:* (M2), test:e2e (M3), demo:verify (M8). See the command table in plan.md.
+- Run `pnpm verify` before committing; run `pnpm test:integration` when API/infra behavior changes.
+- On Windows, stopping a background `pnpm dev` can leave node processes on 3000/3001; stop only those PIDs.
 - Inspect existing package.json scripts before claiming a command is available.
 - Add formatting/lint hooks only after their commands exist and have been tested.
 - Prefer a local formatter for changed files; do not call an LLM to format files in a hook.

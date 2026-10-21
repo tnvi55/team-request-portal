@@ -69,10 +69,34 @@ Consequence: counts are eventually consistent; request detail and decisions use 
 
 ## ADR-010 — Version baseline
 
-Status: pending M0 verification.
-Initial target: Node 24 LTS and supported Prisma ORM 7; compatible stable Next.js/React/NestJS/Postgres/Redis versions must be verified at implementation time.
-Reason: do not invent exact patches or combine incompatible major-version examples.
-M0 must replace this section with exact versions, official compatibility links, verification date, and lock/container pinning details. Avoid moving latest tags and prereleases.
+Status: selected in M0, verified 2026-10-21.
+Sources: npm registry metadata (`dist-tags`, `engines`, `peerDependencies`, publish dates), the [NestJS 12 migration guide](https://docs.nestjs.com/migration-guide), the [Node.js release schedule](https://github.com/nodejs/Release/blob/main/schedule.json), [pnpm settings](https://pnpm.io/settings), and Docker Hub official image tags.
+Rule: stable releases only, at least 7 days old (enforced by `minimumReleaseAge` in pnpm-workspace.yaml), exact versions in every package.json, lockfile committed, exact container tags.
+
+| Area | Pinned | Why this one |
+| --- | --- | --- |
+| Node.js | 24.x, `engines >=24.15 <25`; images `node:24.21.0-alpine` | Plan baseline. Maintenance LTS since 2026-10-20, supported to 2028-04-30. Nest CLI needs ≥24.15. Node 26 becomes LTS 2026-10-28: revisit after M8, not mid-project |
+| pnpm | 12.13.0 (`packageManager`) | Newest release older than 7 days. Installed with npm because Corepack is no longer bundled from Node 25 |
+| TypeScript | 6.0.3 | 7.0 is out, but typescript-eslint supports `<6.1` and Nest CLI bundles `~6.0.2` |
+| Next.js / React | 16.4.0 / 19.3.0 | Current stable App Router; React 19 satisfies Next's peer range |
+| NestJS | 12.1.3 (core/common/platform-express/testing), CLI 12.0.8 | Current major. ESM-only packages, so the API is an ESM project (`nodenext`) |
+| ESLint | 9.39.5, typescript-eslint 8.71.2, eslint-config-next 16.4.0 | ESLint 10 exists, but Next's bundled react/import/jsx-a11y plugins declare peers only up to ESLint 9 |
+| Prettier | 3.9.10 | Formatter for code; Markdown docs excluded to keep authored tables intact |
+| Vitest | 5.0.4 + unplugin-swc 2.0.0 / @swc/core 1.16.18 | Nest 12's default runner for ESM projects; SWC emits the decorator metadata Nest DI needs |
+| Supertest | 7.3.1 | HTTP assertions against the real Nest app in integration tests |
+| zod | 4.6.7 | Startup environment validation |
+| pg / redis (node-redis) | 8.23.1 / 6.3.0 | M1 readiness probes; pg is also the Prisma 7 driver adapter's driver; node-redis is the client connect-redis expects |
+| PostgreSQL | `postgres:18.6-alpine` ×3 | Current stable major; RLS and `set_config(..., true)` as designed |
+| Redis | `redis:8.10.2-alpine` | Current stable; `noeviction` + memory cap |
+| Nginx | `nginx:1.30.6-alpine` | Stable branch (even minor), not mainline 1.31 |
+| gitleaks | `zricethezav/gitleaks:v8.30.1` | Local secret scan; no hosted service |
+
+Planned for later milestones (versions re-checked when installed, same 7-day rule):
+- M2: Prisma ORM 7.10.1 (`prisma`, `@prisma/client`, `@prisma/adapter-pg`). Note: npm's `latest` tag currently points to 8.0.0-rc.23, a release candidate; pin 7.x explicitly.
+- M3: express-session 1.19.x + connect-redis 10.x (Redis session store), argon2 0.45.x (Argon2id), Playwright 1.64.x (browser E2E), class-validator 0.15.x + class-transformer 0.5.x with Nest `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })` for DTOs.
+- M7: nestjs-pino 5.x / pino-http for structured logs with request IDs.
+
+Install-script policy: pnpm runs dependency install scripts only when listed in `allowBuilds` (`@swc/core` allowed; `unrs-resolver` denied because pnpm already installs its native binary).
 
 ## ADR-011 — Lightweight Claude project context
 
@@ -81,6 +105,20 @@ Keep CLAUDE.md concise, explicitly read the relevant plan/architecture sections,
 Reason: preserves project intent across sessions without loading a large duplicate requirements set on every task.
 Consequence: no mandatory vector database, Claude web Project upload, or extra tool integrations. Reusable prompts live in docs/prompts.md.
 
+## ADR-012 — Windows PowerShell + Docker Desktop; apps on the host in development
+
+Status: selected in M1.
+Infrastructure (3× Postgres, Redis, Nginx) runs in Docker Compose. In development, Next.js and NestJS run on the Windows host (`pnpm dev`) bound to 127.0.0.1, and the Nginx container reaches them through `host.docker.internal`. The replica demo runs production images of both apps inside Compose (`pnpm demo:up`).
+Reason: fast hot reload without Windows bind-mount file-watching problems; WSL2 has only the docker-desktop distro on this machine. Verified that the container reaches loopback-bound host ports.
+Consequence: databases/Redis publish loopback-only ports (5433–5435, 6380) for host apps and inspection tools. Package scripts avoid shell-specific syntax; setup and secret-scan helpers are Node scripts.
+
+## ADR-013 — Supply-chain guards for dependencies
+
+Status: selected in M1.
+pnpm `minimumReleaseAge: 10080` (7 days), `allowBuilds` allowlist for install scripts, exact versions, committed lockfile, exact image tags, local gitleaks scan.
+Reason: compromised packages are typically discovered within days of publication; install scripts are the usual execution path.
+Consequence: brand-new patch releases are adopted a week late. An urgent security fix can be added to `minimumReleaseAgeExclude` with a note.
+
 ## Deferred questions / parking lot
 
 | ID | Question | Treatment |
@@ -88,8 +126,8 @@ Consequence: no mandatory vector database, Claude web Project upload, or extra t
 | A-01 | Does the mentor mean a standalone identity provider by "user pool"? | Proceed with chosen interpretation; review before auth implementation if mentor clarifies |
 | A-02 | Are locally running open-source packages/containers permitted? | Assumed yes; no hosted runtime services |
 | Q-01 | What is the final deadline? | Not provided; use ordered gates, not invented delivery dates |
-| Q-02 | Which Git host/remote and work identity? | Inspect existing local configuration in M0; never guess |
-| Q-03 | Which OS shell will be used? | Guide supports Windows; M0 selects/tests PowerShell + Docker Desktop or WSL2 |
+| Q-02 | Which Git host/remote and work identity? | Identity confirmed by user in M0: global `Tanvi <tanvi.jain@fiftyfivetech.io>`. No remote configured yet; ask before first push |
+| Q-03 | Which OS shell will be used? | Resolved: Windows PowerShell + Docker Desktop (ADR-012) |
 
 Add new ADRs only for meaningful choices. Keep resolved facts in their owning document; do not grow this file with every minor code edit.
 

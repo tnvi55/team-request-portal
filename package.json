@@ -1,0 +1,38 @@
+{
+  "name": "team-request-portal",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.13.0",
+  "engines": {
+    "node": ">=24.15.0 <25"
+  },
+  "scripts": {
+    "local:setup": "node scripts/local-setup.mjs",
+    "infra:up": "docker compose --env-file .env -f infra/compose.yaml up -d --wait",
+    "infra:down": "docker compose --env-file .env -f infra/compose.yaml -f infra/compose.demo.yaml down",
+    "infra:ps": "docker compose --env-file .env -f infra/compose.yaml -f infra/compose.demo.yaml ps",
+    "dev": "pnpm --filter @trp/contracts build && pnpm --parallel --filter @trp/contracts --filter @trp/api --filter @trp/web dev",
+    "build": "pnpm -r build",
+    "lint": "eslint .",
+    "typecheck": "pnpm --filter @trp/contracts build && pnpm -r typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test:unit": "pnpm -r test:unit",
+    "test:integration": "pnpm --filter @trp/contracts build && pnpm -r test:integration",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:unit",
+    "secrets:scan": "node scripts/secrets-scan.mjs",
+    "demo:up": "docker compose --env-file .env -f infra/compose.yaml -f infra/compose.demo.yaml up -d --build --wait",
+    "demo:down": "docker compose --env-file .env -f infra/compose.yaml -f infra/compose.demo.yaml rm --stop --force api-1 api-2 web-1 web-2 && docker compose --env-file .env -f infra/compose.yaml up -d --wait proxy"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/node": "24.19.2",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.4.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.2",
+    "vitest": "5.0.4"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@trp/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Browser-safe API types and constants shared by web and api. Must not import Nest or Prisma.",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

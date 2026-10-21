@@ -1,0 +1,8 @@
+pnpm-lock.yaml
+**/dist/
+**/.next/
+**/node_modules/
+**/next-env.d.ts
+coverage/
+# Hand-written docs: keep their tables/line breaks as authored.
+*.md

@@ -1,4 +1,4 @@
-# Team Request & Approval Portal — implementation plan
+# Team Request & Approval Portal — implementation plan M1 | M1 | M2 | M2 | M2 | M1 | M1 | M1 (test:e2e: M3) | M1 | M1 | M8 | M1 | M1 |
 
 Version: 1.0 | Created: 2026-10-19 | Status: agreed project direction; implementation not started
 
@@ -135,15 +135,17 @@ Implement one milestone at a time in the order below. Break a milestone into sma
 
 ### M0 — baseline and version selection
 
-- [ ] Read this pack; inspect the user's project folder before scaffolding.
-- [ ] Check installed Node, package manager, Docker, Compose, Git, and Claude Code.
-- [ ] Use Node 24 LTS as the initial target; verify support at implementation time.
-- [ ] Verify stable, mutually compatible Next.js, React, NestJS, Prisma, database, Redis, and test-tool versions from official docs.
-- [ ] Use supported Prisma ORM 7 as the starting baseline for this design; do not use a release candidate. Record a deliberate ADR before choosing another major.
-- [ ] Choose supporting tools with a one-line reason each: unit/integration test runner, HTTP API test client, browser E2E tool, DTO validation, structured logger, session store adapter, Argon2id library, reverse proxy image.
-- [ ] Record exact selected versions and rationale in decisions.md; pin them in configuration/lockfiles when created.
-- [ ] Check repository-local Git user.name and user.email and explain them before the first commit; use values supplied by the user.
-- [ ] Resolve actual blockers; treat ordinary naming/style choices as authorized implementation work.
+- [x] Read this pack; inspect the user's project folder before scaffolding.
+- [x] Check installed Node, package manager, Docker, Compose, Git, and Claude Code.
+- [x] Use Node 24 LTS as the initial target; verify support at implementation time.
+- [x] Verify stable, mutually compatible Next.js, React, NestJS, Prisma, database, Redis, and test-tool versions from official docs.
+- [x] Use supported Prisma ORM 7 as the starting baseline for this design; do not use a release candidate. Record a deliberate ADR before choosing another major.
+- [x] Choose supporting tools with a one-line reason each: unit/integration test runner, HTTP API test client, browser E2E tool, DTO validation, structured logger, session store adapter, Argon2id library, reverse proxy image.
+- [x] Record exact selected versions and rationale in decisions.md; pin them in configuration/lockfiles when created.
+- [x] Check repository-local Git user.name and user.email and explain them before the first commit; use values supplied by the user.
+- [x] Resolve actual blockers; treat ordinary naming/style choices as authorized implementation work.
+
+Status: M0 and M1 gates passed 2026-10-21; evidence in session_state.md and ADR-010/012/013.
 
 Gate: a short baseline report lists compatible versions, missing prerequisites, and the exact M1 scope. No false "installed" claims.
 
@@ -151,14 +153,14 @@ Learn: why pin exact versions and commit a lockfile? Exercise: find the pinned N
 
 ### M1 — workspace and local infrastructure
 
-- [ ] Create a pnpm workspace: apps/web, apps/api, packages/database, and packages/contracts.
-- [ ] Add ESLint, Prettier, TypeScript strict configuration, root scripts, and lockfile.
-- [ ] Add local PostgreSQL control, PostgreSQL shard A, PostgreSQL shard B, Redis, web, API, and reverse proxy configuration.
-- [ ] Bind public development access to loopback; keep databases and Redis off public interfaces.
-- [ ] Expose a same-origin app at http://localhost:8080.
-- [ ] Separate liveness from readiness and configure graceful termination.
-- [ ] Provide a normal development workflow and a production-build replica demo workflow.
-- [ ] Create validated environment examples without real secrets and a cross-platform local setup script.
+- [x] Create a pnpm workspace: apps/web, apps/api, packages/database, and packages/contracts.
+- [x] Add ESLint, Prettier, TypeScript strict configuration, root scripts, and lockfile.
+- [x] Add local PostgreSQL control, PostgreSQL shard A, PostgreSQL shard B, Redis, web, API, and reverse proxy configuration.
+- [x] Bind public development access to loopback; keep databases and Redis off public interfaces.
+- [x] Expose a same-origin app at http://localhost:8080.
+- [x] Separate liveness from readiness and configure graceful termination.
+- [x] Provide a normal development workflow and a production-build replica demo workflow.
+- [x] Create validated environment examples without real secrets and a cross-platform local setup script.
 
 Gate: clean setup can start infrastructure and placeholder web/API; live/readiness behavior is exercised. Record which commands actually exist and run.
 
@@ -287,23 +289,23 @@ Test the app's actual runtime PostgreSQL role. Superuser-only tests do not prove
 
 ## 8. Command contract to implement
 
-These names are TARGET scripts, not available commands in this documentation-only pack. M1 must create and document them; keep this list and README in sync if a name changes.
+Commands marked M1 exist in the root package.json and were run in M1. The others are targets for the listed milestone; keep this list and README in sync if a name changes.
 
-| Target command | Purpose |
-| --- | --- |
-| pnpm local:setup | Validate prerequisites and create ignored local config/secrets without overwriting existing values |
-| pnpm infra:up / pnpm infra:down | Start/stop local infrastructure without deleting volumes |
-| pnpm db:generate | Generate both client types |
-| pnpm db:migrate:all | Apply control migrations and the same tenant migration history to both shards |
-| pnpm db:seed | Idempotent synthetic seed; protect non-local targets |
-| pnpm dev | Start development apps with documented same-origin access |
-| pnpm lint / pnpm typecheck / pnpm format:check | Static quality checks |
-| pnpm verify | Pre-commit gate: format check, lint, typecheck, and unit tests in one command |
-| pnpm secrets:scan | Local secret scan of the Git repository using a pinned container image; no hosted service |
-| pnpm test:unit / pnpm test:integration / pnpm test:e2e | Meaningful test layers with isolated test data |
-| pnpm build | Build web and API |
-| pnpm demo:up / pnpm demo:down | Start/stop the production-build replica demo |
-| pnpm demo:verify | Run non-destructive checks for the mentor demo |
+| Command | Purpose | Available |
+| --- | --- | --- |
+| pnpm local:setup | Validate prerequisites and create ignored local config/secrets without overwriting existing values | M1 |
+| pnpm infra:up / pnpm infra:down | Start/stop local infrastructure without deleting volumes | M1 |
+| pnpm db:generate | Generate both client types | M2 |
+| pnpm db:migrate:all | Apply control migrations and the same tenant migration history to both shards | M2 |
+| pnpm db:seed | Idempotent synthetic seed; protect non-local targets | M2 |
+| pnpm dev | Start development apps with documented same-origin access | M1 |
+| pnpm lint / pnpm typecheck / pnpm format:check | Static quality checks | M1 |
+| pnpm verify | Pre-commit gate: format check, lint, typecheck, and unit tests in one command | M1 |
+| pnpm secrets:scan | Local secret scan of the Git repository using a pinned container image; no hosted service | M1 |
+| pnpm test:unit / pnpm test:integration / pnpm test:e2e | Meaningful test layers with isolated test data | M1 (test:e2e in M3) |
+| pnpm build | Build web and API | M1 |
+| pnpm demo:up / pnpm demo:down | Start/stop the production-build replica demo | M1 |
+| pnpm demo:verify | Run non-destructive checks for the mentor demo | M8 |
 
 Do not add a default command that deletes Docker volumes. Destructive resets, if ever needed, require an explicitly named command and a local-target guard.
 

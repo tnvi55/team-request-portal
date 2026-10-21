@@ -9,19 +9,25 @@ The browser only talks to `localhost:8080`. A reverse proxy (Nginx) sends `/api/
 ## Infrastructure
 
 **Monorepo / pnpm workspace.** One Git repo containing several packages (`apps/web`, `apps/api`, `packages/*`). The packages import each other by name without publishing to npm. pnpm is strict: a package can only import dependencies it declares, which catches "works on my machine" bugs.
-Where: `pnpm-workspace.yaml`, root `package.json` (M1).
+Where: [pnpm-workspace.yaml](../pnpm-workspace.yaml) (also the 7-day `minimumReleaseAge` and `allowBuilds` supply-chain guards), [package.json](../package.json) scripts.
 
 **Docker Compose.** Describes the local infrastructure (3 Postgres containers, Redis, Nginx) in one file so everyone gets the same versions. Named volumes keep database data when containers stop.
-Where: `infra/compose.yaml` (M1).
+Where: [infra/compose.yaml](../infra/compose.yaml) (dev) and [infra/compose.demo.yaml](../infra/compose.demo.yaml) (replica demo layered on top). Try: `pnpm infra:ps`.
 
 **Reverse proxy and same-origin.** Browsers treat `http://localhost:8080` and `http://localhost:3001` as different origins. Cookies and fetch calls across origins need CORS configuration and are easy to get wrong. Putting pages and API behind one proxy origin removes that whole problem.
-Where: `infra/nginx/` (M1).
+Where: [infra/nginx/dev.conf](../infra/nginx/dev.conf). Note the `location /api/` block: no path after `http://api`, so `/api/v1/...` reaches Nest unchanged. In [demo.conf](../infra/nginx/demo.conf), `zone` makes all Nginx worker processes share one round-robin counter; without it every request went to api-1.
 
 **Liveness vs readiness.** Liveness answers "is the process running?" (if not, restart it). Readiness answers "can it serve requests right now?" (are Postgres and Redis reachable?). A process can be alive but not ready; the proxy/orchestrator should then stop sending it traffic instead of restarting it.
-Where: API health module (M1).
+Where: [health.controller.ts](../apps/api/src/health/health.controller.ts), [health.service.ts](../apps/api/src/health/health.service.ts), tested in [health.int-spec.ts](../apps/api/test/health.int-spec.ts). Try: `docker compose --env-file .env -f infra/compose.yaml stop redis`, then open /api/v1/health/ready (503) and /live (200).
 
 **Environment variables and secrets.** Configuration that differs per machine (database URLs, signing secrets) is read from environment variables, validated at startup, and stored in an ignored `.env` file. `.env.example` documents the names with fake values and is committed.
-Where: `.env.example`, `scripts/local-setup` (M1).
+Where: [.env.example](../.env.example), [scripts/local-setup.mjs](../scripts/local-setup.mjs), validated at API startup by [env.ts](../apps/api/src/config/env.ts) (errors name the variable, never its value).
+
+**Graceful shutdown.** `docker stop` sends SIGTERM. Nest's shutdown hooks stop accepting requests, let in-flight ones finish, and close pools/Redis. Exit code 143 means "ended by SIGTERM after cleanup"; 137 would mean Docker had to force-kill it after the grace period.
+Where: [app.setup.ts](../apps/api/src/app.setup.ts) (`enableShutdownHooks`), `onApplicationShutdown` in health.service.ts, `stop_grace_period` in compose.demo.yaml.
+
+**Database roles (least privilege).** Each database gets `trp_migrator` (owns the schema, runs migrations) and `trp_runtime` (what the API uses). Neither is a superuser or has BYPASSRLS. RLS only protects data when the app connects as a role it applies to.
+Where: [infra/postgres/init/01-roles.sh](../infra/postgres/init/01-roles.sh).
 
 ## Data
 

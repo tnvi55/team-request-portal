@@ -2,16 +2,7 @@
 
 A local multi-tenant SaaS learning project: employees submit equipment/software requests, reviewers approve or reject, and organization admins manage accounts.
 
-**Current status: documentation starter pack. The application has not been implemented.** There is no working server, package.json, Compose setup, or tested application command yet.
-
-## Start here
-
-1. Extract the starter ZIP.
-2. Open the team-request-portal folder itself in VS Code.
-3. Use the prompts in [docs/prompts.md](docs/prompts.md) with Claude Code.
-4. Implement the milestones in [plan.md](plan.md), one at a time.
-
-If you already have a repository, copy the contents into its root after reviewing existing files; do not overwrite unrelated project instructions or user code.
+**Current status: M1 complete (workspace and local infrastructure).** The web and API apps are placeholders with health checks; sign-in, requests, and administration arrive in later milestones. Progress lives in [plan.md](plan.md) and [session_state.md](session_state.md).
 
 ## Selected stack and requirements
 
@@ -25,7 +16,7 @@ Next.js App Router + NestJS + PostgreSQL + Prisma + Redis.
 - Local runtime with no hosted authentication/database/cache/email service.
 - Architecture, tests, incremental Git history, and mentor demo evidence.
 
-Exact dependency/container versions are selected and pinned in M0. Docker Desktop/Compose, Node LTS, pnpm, Git, and Claude Code are prerequisites, subject to that baseline check.
+Exact versions and the reasons for them are in [ADR-010](docs/decisions.md).
 
 ## Document map
 
@@ -41,15 +32,67 @@ Exact dependency/container versions are selected and pinned in M0. Docker Deskto
 | [docs/prompts.md](docs/prompts.md) | Reusable Claude Code prompts for milestones, resume, handoff, review |
 | [docs/references.md](docs/references.md) | Primary technical references |
 
-## Setup commands
+## Setup (Windows PowerShell + Docker Desktop)
 
-Not available yet. M1 must implement and verify the command contract in plan.md, then replace this section with real setup/start/migrate/seed/test/demo instructions.
+Prerequisites (verified with these versions):
 
-Do not present target commands as working until the corresponding scripts exist and have passed checks.
+| Tool | Version | Install |
+| --- | --- | --- |
+| Node.js | 24.x (>= 24.15) | nodejs.org LTS installer or nvm-windows |
+| pnpm | 12.13.0 | `npm install --global pnpm@12.13.0` |
+| Docker Desktop | Engine 29+, Compose v2 | WSL2 backend; must be running |
+| Git | any recent | |
+
+First run, from the repository root:
+
+~~~powershell
+pnpm install          # dependencies from the committed lockfile
+pnpm local:setup      # checks prerequisites; creates .env with random local secrets (safe to re-run)
+pnpm infra:up         # starts 3x Postgres, Redis, Nginx and waits until healthy
+pnpm dev              # Next.js on 127.0.0.1:3000 + NestJS on 127.0.0.1:3001
+~~~
+
+Open http://localhost:8080. The page shows API readiness for the control database, both shards, and Redis. Always use port 8080 (the proxy), not 3000/3001, so pages and `/api/v1` share one origin.
+
+Daily commands:
+
+| Command | What it does |
+| --- | --- |
+| `pnpm infra:up` / `pnpm infra:down` | Start / stop containers. Data volumes are kept |
+| `pnpm dev` | Development servers with hot reload (Ctrl+C to stop) |
+| `pnpm verify` | Format check, lint, typecheck, unit tests. Run before every commit |
+| `pnpm test:integration` | API tests against the real local Postgres/Redis (needs `infra:up`) |
+| `pnpm build` | Production build of contracts, API, and web |
+| `pnpm demo:up` / `pnpm demo:down` | Production images: 2x API + 2x web behind the proxy, and back to dev mode |
+| `pnpm secrets:scan` | Scan Git history for committed secrets (local gitleaks container) |
+| `pnpm format` | Apply Prettier formatting |
+
+Not yet available: `db:generate`, `db:migrate:all`, `db:seed` (M2), `test:e2e` (M3), `demo:verify` (M8).
+
+Health endpoints: `GET /api/v1/health/live` (process alive) and `GET /api/v1/health/ready` (200 when all dependencies answer, otherwise 503 listing which one is down; no hostnames or errors exposed).
+
+### Local ports
+
+All bound to 127.0.0.1, never to the network.
+
+| Port | Service |
+| --- | --- |
+| 8080 | Nginx: the app |
+| 3000 / 3001 | Next.js / NestJS dev servers |
+| 5433 / 5434 / 5435 | Postgres control / shard A / shard B |
+| 6380 | Redis |
+
+### Troubleshooting
+
+- **502 on localhost:8080**: `pnpm dev` is not running (dev mode), or run `pnpm demo:down` if you left demo mode.
+- **Port already in use**: another local Postgres/Redis or an old dev server. On Windows, stopping a terminal can leave `node` running: `Get-NetTCPConnection -LocalPort 3000,3001 -State Listen` shows the owning process.
+- **`infra:up` says "run pnpm local:setup first"**: `.env` is missing values.
+- **Database roles**: `infra/postgres/init/01-roles.sh` runs only when a volume is first created. Changing passwords in `.env` afterwards does not change existing roles.
+- **readiness 503**: the JSON names the failing dependency; check `pnpm infra:ps`.
 
 ## Local data and credentials
 
-Use synthetic data only. Generate secrets/passwords locally into ignored files during setup/seed. Never commit real environment values, generated credentials, Docker volumes, database dumps, or personal information.
+Use synthetic data only. Secrets and database passwords are generated by `pnpm local:setup` into the Git-ignored `.env`; `.env.example` holds placeholders only. Never commit real environment values, generated credentials, Docker volumes, database dumps, or personal information.
 
 Normal stopping must retain database volumes. There is no default destructive reset.
 
@@ -58,4 +101,6 @@ Normal stopping must retain database volumes. There is no default destructive re
 One organization per account; fixed two-shard directory; no cross-shard transactions/joins or automatic rebalancing; short-lived dashboard staleness; one local machine without production high availability.
 
 The user-pool interpretation is recorded as assumption A-01 in plan.md for mentor review.
+
+Inspection ports and the Redis password on the container command line are local-development conveniences, not production settings.
 

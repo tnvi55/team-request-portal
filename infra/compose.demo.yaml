@@ -1,0 +1,92 @@
+# Production-build replica demo, layered on compose.yaml (pnpm demo:up / demo:down).
+# Two identical API and two identical web containers; the proxy switches to demo.conf.
+
+x-api: &api
+  image: trp-api:local
+  init: true
+  restart: unless-stopped
+  stop_grace_period: 15s
+  environment: &api-env
+    NODE_ENV: production
+    API_HOST: 0.0.0.0
+    API_PORT: '3001'
+    APP_ORIGIN: http://localhost:8080
+    CONTROL_DATABASE_URL: postgres://trp_runtime:${PG_RUNTIME_PASSWORD}@postgres-control:5432/trp_control
+    SHARD_A_DATABASE_URL: postgres://trp_runtime:${PG_RUNTIME_PASSWORD}@postgres-shard-a:5432/trp_shard_a
+    SHARD_B_DATABASE_URL: postgres://trp_runtime:${PG_RUNTIME_PASSWORD}@postgres-shard-b:5432/trp_shard_b
+    REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
+    SESSION_SECRET: ${SESSION_SECRET:?run pnpm local:setup first}
+    CURSOR_SECRET: ${CURSOR_SECRET:?run pnpm local:setup first}
+  depends_on:
+    postgres-control: { condition: service_healthy }
+    postgres-shard-a: { condition: service_healthy }
+    postgres-shard-b: { condition: service_healthy }
+    redis: { condition: service_healthy }
+  healthcheck:
+    test:
+      [
+        'CMD',
+        'node',
+        '-e',
+        "fetch('http://127.0.0.1:3001/api/v1/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+      ]
+    interval: 5s
+    timeout: 3s
+    retries: 12
+  networks: [edge, data]
+
+x-web: &web
+  image: trp-web:local
+  init: true
+  restart: unless-stopped
+  stop_grace_period: 15s
+  environment:
+    HOSTNAME: 0.0.0.0
+    PORT: '3000'
+  healthcheck:
+    test:
+      [
+        'CMD',
+        'node',
+        '-e',
+        "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+      ]
+    interval: 5s
+    timeout: 3s
+    retries: 12
+  networks: [edge]
+
+# Only the "-1" services build; the "-2" replicas run the very same image.
+services:
+  api-1:
+    <<: *api
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    environment:
+      <<: *api-env
+      INSTANCE_ID: api-1
+  api-2:
+    <<: *api
+    pull_policy: never
+    environment:
+      <<: *api-env
+      INSTANCE_ID: api-2
+  web-1:
+    <<: *web
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+  web-2:
+    <<: *web
+    pull_policy: never
+
+  proxy:
+    volumes:
+      - ./nginx/demo.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+    depends_on:
+      api-1: { condition: service_healthy }
+      api-2: { condition: service_healthy }
+      web-1: { condition: service_healthy }
+      web-2: { condition: service_healthy }
