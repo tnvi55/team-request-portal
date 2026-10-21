@@ -96,6 +96,7 @@ All bound to 127.0.0.1, never to the network.
 - **Port already in use**: another local Postgres/Redis or an old dev server. On Windows, stopping a terminal can leave `node` running: `Get-NetTCPConnection -LocalPort 3000,3001 -State Listen` shows the owning process.
 - **`infra:up` says "run pnpm local:setup first"**: `.env` is missing values.
 - **Database roles**: `infra/postgres/init/01-roles.sh` runs only when a volume is first created. Changing passwords in `.env` afterwards does not change existing roles.
+- **`The system cannot find the path specified (os error 3)` from pnpm**: the checkout path is too deep for Windows' 260-character limit. Clone to a short path such as `C:\dev\team-request-portal`, or enable Windows long paths.
 - **readiness 503**: the JSON names the failing dependency; check `pnpm infra:ps`.
 
 ## Local data and credentials
