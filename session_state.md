@@ -8,7 +8,7 @@ Implementation status: M0, M1, M2 complete and verified
 ## Completed
 
 - M0/M1: workspace, infra, health checks, replica demo (details in plan.md and the Learning Guide).
-- M2 (branch `m2-schemas-sharding`): Prisma 7.10.0 control + tenant schemas and generated clients in `packages/database`; init migrations + hand-written RLS/CHECK/grants migrations; `ShardRegistry`, `resolveShardKey`, `withTenant`, Argon2id helper (@node-rs/argon2); idempotent seed (Atlas, Cedar -> shard A; Birch -> shard B; 4 users and 64 requests each; credentials in `.local/demo-credentials.json`); read-only `db:verify`; isolated `*_test` databases; API `DatabaseService` and readiness through Prisma.
+- M2 (merged into `main` by fast-forward on 2026-10-21, no pull request; branch `m2-schemas-sharding` kept on GitHub): Prisma 7.10.0 control + tenant schemas and generated clients in `packages/database`; init migrations + hand-written RLS/CHECK/grants migrations; `ShardRegistry`, `resolveShardKey`, `withTenant`, Argon2id helper (@node-rs/argon2); idempotent seed (Atlas, Cedar -> shard A; Birch -> shard B; 4 users and 64 requests each; credentials in `.local/demo-credentials.json`); read-only `db:verify`; isolated `*_test` databases; API `DatabaseService` and readiness through Prisma.
 - Decisions: ADR-010 updated (Prisma 7.10.0 because 7.10.1 is under the 7-day rule; @node-rs/argon2), ADR-014 (migration workflow, roles, test databases).
 - Git: `main` tracks `origin` (https://github.com/tnvi55/team-request-portal.git). Identity `Tanvi <tanvi.jain@fiftyfivetech.io>`.
 
@@ -25,6 +25,8 @@ Implementation status: M0, M1, M2 complete and verified
 | `pnpm verify` | format, lint, typecheck clean; unit 9/9 (database) + 5/5 (API) |
 | `pnpm build`, `pnpm test:integration` | ok; 16/16 database + 4/4 API |
 | `pnpm demo:up` | images build with Prisma; both API replicas ready through Prisma; `demo:down` ok |
+| Fresh clone before merge (`C:myData	rp-check`, then deleted) | frozen install, verify, build, 16+4 integration tests, migrate (nothing pending), seed (0 new rows), db:verify all ok. A clone under the long scratchpad path failed with os error 3 (Windows 260-char path limit), now in README troubleshooting |
+| `pnpm dev` smoke via :8080 | page 200, live 200, ready 200 (all up), unknown route 404 |
 
 ## Not run / known gaps
 
