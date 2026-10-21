@@ -78,6 +78,21 @@ Both tenant databases receive exactly the same schema and migrations.
 | Request | tenantId; id UUID; title; description; category; status; createdByUserId; reviewedByUserId nullable; reviewComment nullable; createdAt; updatedAt; reviewedAt nullable; version integer |
 | RequestAuditEvent | tenantId; id UUID; requestId; actorUserId; action; timestamp; correlationRequestId; safe metadata |
 
+Data model overview. Solid lines are real foreign keys inside one database; dotted lines are scalar ID references across databases (no foreign key is possible).
+
+~~~mermaid
+erDiagram
+    User ||--o| Membership : "has (one in MVP)"
+    Organization ||--o{ Membership : "has"
+    Organization ||--|| TenantDirectory : "routed by"
+    Organization ||--o{ ControlAuditEvent : "logs"
+    Request ||--o{ RequestAuditEvent : "logs (FK includes tenantId)"
+    TenantDirectory ||..o{ Request : "shardKey selects database; tenantId = organizationId"
+    User ||..o{ Request : "createdByUserId / reviewedByUserId (scalar)"
+~~~
+
+User, Organization, Membership, TenantDirectory, and ControlAuditEvent live in the control database. Request and RequestAuditEvent live in each tenant shard.
+
 Use composite keys/uniques and foreign keys that include tenantId where appropriate, especially RequestAuditEvent -> Request. Add indexes for tenant/status/category and descending createdAt/id pagination.
 
 Control user IDs are scalar references in tenant records. PostgreSQL foreign keys and Prisma relations do not span these independent databases. Validate user membership in the application; fetch authorized user display data from control in batches if needed. Do not perform N+1 cross-database lookups or copy password data into shards.
@@ -212,6 +227,24 @@ Inside one tenant-scoped shard transaction: insert PENDING Request; insert REQUE
 5. If no row was updated, return 409 for the accessible request's stale transition.
 6. Insert exactly one decision audit event using the successful resulting state.
 7. Commit; then invalidate dashboard cache.
+
+Two reviewers deciding the same request at the same time:
+
+~~~mermaid
+sequenceDiagram
+    participant M1 as Manager 1 (api-1)
+    participant M2 as Manager 2 (api-2)
+    participant S as Shard A (Postgres)
+    M1->>S: BEGIN; set_config('app.tenant_id', Atlas, true)
+    M2->>S: BEGIN; set_config('app.tenant_id', Atlas, true)
+    M1->>S: UPDATE ... SET APPROVED, version=4 WHERE status=PENDING AND version=3
+    M2->>S: UPDATE ... SET REJECTED, version=4 WHERE status=PENDING AND version=3
+    Note over S: M2 waits on M1's row lock
+    M1->>S: INSERT audit REQUEST_APPROVED; COMMIT
+    S-->>M2: 0 rows (row now APPROVED, version 4)
+    M2->>S: ROLLBACK
+    Note over M1,M2: M1 gets 200; M2 gets 409; exactly one audit event
+~~~
 
 Do not use a read-then-unconditional-update sequence. Row locking or conditional updates must prevent concurrent decisions. Fault-injection tests can use a test-only repository seam; do not add a public "make audit fail" endpoint.
 

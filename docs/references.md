@@ -19,17 +19,3 @@ The product scope, proposed schema, endpoint map, limits, and milestone choices 
 | [Redis key eviction](https://redis.io/docs/latest/develop/reference/eviction/) | Memory limits and noeviction tradeoffs |
 | [OWASP password storage](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) | Maintained Argon2id implementation and password-hash baseline |
 | [OWASP CSRF prevention](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html) | Session-bound CSRF tokens and origin validation |
-
-## Company sample adaptation
-
-The uploaded company README describes an AI-assisted project-management toolchain with discovery, scope, architecture, backlog, estimates, and session-state documents.
-
-This project adopts:
-- define scope before coding,
-- one owning document per type of fact,
-- explicit assumptions,
-- milestone acceptance gates,
-- short session handoffs.
-
-It does not install that repository's skill files, Odoo MCP server, ticket integrations, or its full client-delivery workflow. The original sample remains unchanged.
-

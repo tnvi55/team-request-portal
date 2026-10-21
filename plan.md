@@ -10,7 +10,7 @@ An employee requests equipment or software. A reviewer approves or rejects the r
 
 This is a local learning implementation with professional engineering practices. A successful laptop demo does not establish production availability, throughput, or operational readiness.
 
-**This file owns product scope, business rules, milestone acceptance criteria, and completion status.** Technical mechanics live in [architecture.md](docs/architecture.md); enduring decisions and assumptions live in [decisions.md](docs/decisions.md). Avoid duplicating task status elsewhere.
+**This file owns product scope, business rules, milestone acceptance criteria, and completion status.** Technical mechanics live in [architecture.md](docs/architecture.md); enduring decisions and assumptions live in [decisions.md](docs/decisions.md); plain-language concept explanations live in [learning.md](docs/learning.md). Avoid duplicating task status elsewhere.
 
 ## 2. Interpretation of the mentor's requirements
 
@@ -123,6 +123,16 @@ Next.js owns presentation and transient browser state. NestJS owns authenticatio
 
 Implement one milestone at a time in the order below. Break a milestone into smaller tasks if needed. Each gate requires real command output; do not mark a checkbox just because code exists.
 
+**Priority if time runs short** (no deadline is set yet; see Q-01). Keep the order; cut from the end, never skip a gate:
+
+| Tier | Milestones | Why |
+| --- | --- | --- |
+| Core (must demo) | M0–M5 | Login, tenant isolation on two shards, atomic decisions + audit: the heart of every mentor requirement |
+| Important | M6–M7 | Admin safety, shared limits, cache: completes the "multi-role" and "Redis" requirements |
+| Polish | M8 | Two-replica proof and final rehearsal; still required for D07/D09 |
+
+**Learning checkpoint.** Each milestone ends with a "Learn" line. Before ticking the gate, the learner should be able to explain that concept in their own words and try the small exercise against the running code. Plain-language concept notes live in [learning.md](docs/learning.md) and grow with each milestone.
+
 ### M0 — baseline and version selection
 
 - [ ] Read this pack; inspect the user's project folder before scaffolding.
@@ -130,11 +140,14 @@ Implement one milestone at a time in the order below. Break a milestone into sma
 - [ ] Use Node 24 LTS as the initial target; verify support at implementation time.
 - [ ] Verify stable, mutually compatible Next.js, React, NestJS, Prisma, database, Redis, and test-tool versions from official docs.
 - [ ] Use supported Prisma ORM 7 as the starting baseline for this design; do not use a release candidate. Record a deliberate ADR before choosing another major.
+- [ ] Choose supporting tools with a one-line reason each: unit/integration test runner, HTTP API test client, browser E2E tool, DTO validation, structured logger, session store adapter, Argon2id library, reverse proxy image.
 - [ ] Record exact selected versions and rationale in decisions.md; pin them in configuration/lockfiles when created.
 - [ ] Check repository-local Git user.name and user.email and explain them before the first commit; use values supplied by the user.
 - [ ] Resolve actual blockers; treat ordinary naming/style choices as authorized implementation work.
 
 Gate: a short baseline report lists compatible versions, missing prerequisites, and the exact M1 scope. No false "installed" claims.
+
+Learn: why pin exact versions and commit a lockfile? Exercise: find the pinned Node/pnpm versions and explain what would break if two developers used different majors.
 
 ### M1 — workspace and local infrastructure
 
@@ -148,6 +161,8 @@ Gate: a short baseline report lists compatible versions, missing prerequisites, 
 - [ ] Create validated environment examples without real secrets and a cross-platform local setup script.
 
 Gate: clean setup can start infrastructure and placeholder web/API; live/readiness behavior is exercised. Record which commands actually exist and run.
+
+Learn: reverse proxy, same-origin, liveness vs readiness. Exercise: stop Redis and watch /api/v1/health/ready turn unready while /api/v1/health/live stays OK.
 
 ### M2 — schemas, shard routing, and synthetic data
 
@@ -163,6 +178,8 @@ Gate: clean setup can start infrastructure and placeholder web/API; live/readine
 
 Gate: database evidence shows identical tenant schema versions, the expected company distribution, forced RLS, and stable counts after running seed twice. Never run destructive reset against an unknown database.
 
+Learn: migrations, directory-based sharding, idempotent seeding, RLS. Exercise: as the runtime role, run a raw SELECT on shard A with no tenant context and explain why it returns zero rows.
+
 ### M3 — secure authentication vertical slice
 
 - [ ] Implement login page, current-user display, logout, and password-change UI/API.
@@ -176,6 +193,8 @@ Gate: database evidence shows identical tenant schema versions, the expected com
 
 Gate: automated tests cover valid/invalid login, logout, fixation prevention, expiry, password change/revocation, disabled accounts, CSRF failures, and shared login limits.
 
+Learn: password hashing, cookie sessions vs JWT, session fixation, CSRF. Exercise: inspect the session key in Redis (not its cookie value), change the password, and show the old session is rejected.
+
 ### M4 — tenant context and request creation/listing
 
 - [ ] Resolve current membership and directory mapping on every protected request.
@@ -188,6 +207,8 @@ Gate: automated tests cover valid/invalid login, logout, fixation prevention, ex
 
 Gate: end-to-end user can submit and read a request. An employee cannot read a coworker's record; Atlas cannot read Cedar even though both share shard A; Atlas cannot read Birch on shard B. Guessed IDs and altered query/body fields fail safely.
 
+Learn: tenant context, ownership filters, cursor pagination, 404 vs 403. Exercise: temporarily remove the tenantId filter in a local branch and show the RLS test still blocks Atlas from Cedar; then restore it.
+
 ### M5 — review decisions and transactional audit
 
 - [ ] Implement approval/rejection UI/API and ADMIN request-audit page.
@@ -198,6 +219,8 @@ Gate: end-to-end user can submit and read a request. An employee cannot read a c
 - [ ] Include actor ID, tenant ID, action, entity ID, timestamp, request ID, and safe metadata.
 
 Gate: concurrent approve/reject gives exactly one success, one 409, and one decision event. An induced audit-write failure rolls back the decision. Direct runtime-role audit UPDATE/DELETE is denied.
+
+Learn: transactions, atomicity, optimistic concurrency (version check). Exercise: explain why "read status, then update" can produce two decisions, and why the conditional UPDATE cannot.
 
 ### M6 — company user administration
 
@@ -210,6 +233,8 @@ Gate: concurrent approve/reject gives exactly one success, one 409, and one deci
 
 Gate: employee/manager admin calls are rejected. Existing sessions observe role/disable changes on the next protected call. Concurrent removal of the final admins cannot leave the organization without an active admin.
 
+Learn: row locks (pessimistic concurrency), authorization from current data. Exercise: demote a manager in one browser and watch their next call in another browser get 403.
+
 ### M7 — dashboard caching and operational behavior
 
 - [ ] Cache company-wide counts for reviewers and own counts for employees under separate tenant/scope keys.
@@ -221,6 +246,8 @@ Gate: employee/manager admin calls are rejected. Existing sessions observe role/
 
 Gate: verify cache hits, scope isolation, expiry, and post-write invalidation. Count displays are eventually consistent with a five-second initial cache TTL; do not promise strict read-after-write consistency during races/failures. Request detail/status comes from the database. Security/authorization never comes from this cache.
 
+Learn: cache keys and scope, TTL, eventual consistency, fail-open vs fail-closed. Exercise: explain why a cache outage may degrade the dashboard but a session-store outage must return 503.
+
 ### M8 — replica evidence, final verification, and Git handoff
 
 - [ ] Run production builds of two web and two API instances behind the local reverse proxy.
@@ -231,10 +258,13 @@ Gate: verify cache hits, scope isolation, expiry, and post-write invalidation. C
 - [ ] Run lint, typecheck, unit tests, integration tests, browser E2E, and production build.
 - [ ] Rehearse docs/demo.md, including shard evidence and failure-path behavior.
 - [ ] Complete README setup/troubleshooting and architecture diagrams.
+- [ ] Run the local secret scan over the full Git history and confirm no credentials, .env files, or generated demo passwords are tracked.
 - [ ] Review git diff and staged files, commit logical changes, and push the user-selected branch/remote under the user's normal workflow.
 - [ ] Record known limitations honestly and update this checklist and session_state.md.
 
 Gate: another developer can reproduce setup and the documented demo from a clean checkout. All required tests pass against real local Postgres/Redis; report any unrun checks instead of claiming completion.
+
+Learn: stateless processes vs stateful stores, horizontal scaling. Exercise: stop api-1 mid-demo and explain why your login survives on api-2.
 
 ## 7. Definition of done and evidence
 
@@ -268,6 +298,8 @@ These names are TARGET scripts, not available commands in this documentation-onl
 | pnpm db:seed | Idempotent synthetic seed; protect non-local targets |
 | pnpm dev | Start development apps with documented same-origin access |
 | pnpm lint / pnpm typecheck / pnpm format:check | Static quality checks |
+| pnpm verify | Pre-commit gate: format check, lint, typecheck, and unit tests in one command |
+| pnpm secrets:scan | Local secret scan of the Git repository using a pinned container image; no hosted service |
 | pnpm test:unit / pnpm test:integration / pnpm test:e2e | Meaningful test layers with isolated test data |
 | pnpm build | Build web and API |
 | pnpm demo:up / pnpm demo:down | Start/stop the production-build replica demo |
@@ -277,9 +309,9 @@ Do not add a default command that deletes Docker volumes. Destructive resets, if
 
 ## 9. Working method and scope changes
 
-Borrowed from the company sample: discovery -> bounded scope -> architecture -> testable tasks -> implementation -> evidence -> session handoff.
+Flow: discovery -> bounded scope -> architecture -> testable tasks -> implementation -> evidence -> session handoff. Reusable prompts for each step live in [prompts.md](docs/prompts.md).
 
-Keep it small: no separate client proposal, estimator, Odoo instance, or replicated requirements document. This project already has its scope defined here.
+Keep it small: no separate proposal, estimator, or replicated requirements document. This project already has its scope defined here.
 
 For a task: read the relevant requirements; state a brief implementation approach; change a small coherent set of files; test; review the diff; update progress. Explain important code choices in plain language so the learner can understand the resulting project.
 

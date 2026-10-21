@@ -19,9 +19,9 @@ Deliver small working milestones; do not generate the entire application at once
 - docs/architecture.md owns technical mechanics; docs/decisions.md owns ADRs.
 - session_state.md owns the current handoff and last verified commands.
 - README.md owns user-facing setup; docs/demo.md owns the mentor walkthrough.
+- docs/learning.md owns plain-language concept notes; add or update the relevant entry when a milestone implements a concept.
 - These Markdown files are project context, not proof of enforcement. Implement checks in code, tests, and configuration.
 - Auto memory is supplementary. Promote enduring decisions into the appropriate versioned document.
-- The company sample is a workflow reference. Its named skills/MCP tools are not installed by this pack.
 
 ## Selected architecture
 

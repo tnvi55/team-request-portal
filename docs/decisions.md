@@ -79,7 +79,7 @@ M0 must replace this section with exact versions, official compatibility links, 
 Status: selected.
 Keep CLAUDE.md concise, explicitly read the relevant plan/architecture sections, and keep a short session_state.md.
 Reason: preserves project intent across sessions without loading a large duplicate requirements set on every task.
-Consequence: no mandatory vector database, Claude web Project upload, Odoo server, or company-specific skill installation.
+Consequence: no mandatory vector database, Claude web Project upload, or extra tool integrations. Reusable prompts live in docs/prompts.md.
 
 ## Deferred questions / parking lot
 

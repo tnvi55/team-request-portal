@@ -8,7 +8,7 @@ A local multi-tenant SaaS learning project: employees submit equipment/software 
 
 1. Extract the starter ZIP.
 2. Open the team-request-portal folder itself in VS Code.
-3. Follow [START_HERE.md](START_HERE.md) and paste its first prompt into Claude Code.
+3. Use the prompts in [docs/prompts.md](docs/prompts.md) with Claude Code.
 4. Implement the milestones in [plan.md](plan.md), one at a time.
 
 If you already have a repository, copy the contents into its root after reviewing existing files; do not overwrite unrelated project instructions or user code.
@@ -37,6 +37,8 @@ Exact dependency/container versions are selected and pinned in M0. Docker Deskto
 | [docs/decisions.md](docs/decisions.md) | Decisions and explicit assumptions |
 | [session_state.md](session_state.md) | Current handoff and verified progress |
 | [docs/demo.md](docs/demo.md) | Mentor walkthrough and evidence checklist |
+| [docs/learning.md](docs/learning.md) | Plain-language concept notes for the learner |
+| [docs/prompts.md](docs/prompts.md) | Reusable Claude Code prompts for milestones, resume, handoff, review |
 | [docs/references.md](docs/references.md) | Primary technical references |
 
 ## Setup commands
