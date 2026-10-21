@@ -25,7 +25,7 @@ Implementation status: M0, M1, M2 complete and verified
 | `pnpm verify` | format, lint, typecheck clean; unit 9/9 (database) + 5/5 (API) |
 | `pnpm build`, `pnpm test:integration` | ok; 16/16 database + 4/4 API |
 | `pnpm demo:up` | images build with Prisma; both API replicas ready through Prisma; `demo:down` ok |
-| Fresh clone before merge (`C:myData	rp-check`, then deleted) | frozen install, verify, build, 16+4 integration tests, migrate (nothing pending), seed (0 new rows), db:verify all ok. A clone under the long scratchpad path failed with os error 3 (Windows 260-char path limit), now in README troubleshooting |
+| Fresh clone before merge (`C:\myData\trp-check`, then deleted) | frozen install, verify, build, 16+4 integration tests, migrate (nothing pending), seed (0 new rows), db:verify all ok. A clone under the long scratchpad path failed with os error 3 (Windows 260-char path limit), now in README troubleshooting |
 | `pnpm dev` smoke via :8080 | page 200, live 200, ready 200 (all up), unknown route 404 |
 
 ## Not run / known gaps
