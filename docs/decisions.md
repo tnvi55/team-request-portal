@@ -126,7 +126,7 @@ Consequence: brand-new patch releases are adopted a week late. An urgent securit
 | A-01 | Does the mentor mean a standalone identity provider by "user pool"? | Proceed with chosen interpretation; review before auth implementation if mentor clarifies |
 | A-02 | Are locally running open-source packages/containers permitted? | Assumed yes; no hosted runtime services |
 | Q-01 | What is the final deadline? | Not provided; use ordered gates, not invented delivery dates |
-| Q-02 | Which Git host/remote and work identity? | Identity confirmed by user in M0: global `Tanvi <tanvi.jain@fiftyfivetech.io>`. No remote configured yet; ask before first push |
+| Q-02 | Which Git host/remote and work identity? | Identity confirmed by user in M0: global `Tanvi <tanvi.jain@fiftyfivetech.io>`. Remote `origin` = https://github.com/tnvi55/team-request-portal.git (provided by the user 2026-10-21); push the user-selected branch only, never force-push |
 | Q-03 | Which OS shell will be used? | Resolved: Windows PowerShell + Docker Desktop (ADR-012) |
 
 Add new ADRs only for meaningful choices. Keep resolved facts in their owning document; do not grow this file with every minor code edit.

@@ -10,7 +10,7 @@ Implementation status: M0 and M1 complete and verified
 - Docs: START_HERE.md prompts moved to docs/prompts.md; added docs/learning.md, per-milestone "Learn" checkpoints, priority tiers, `pnpm verify` and `pnpm secrets:scan` in plan.md; data-model and concurrent-decision diagrams in architecture.md.
 - M0: environment checked (Node 24.21.0, Docker 29.8.2 / Compose 5.5.1, Git 2.41, WSL2 with docker-desktop distro only; `claude` CLI not on PATH, VS Code extension used). pnpm 12.13.0 installed via npm. Versions recorded in ADR-010; ADR-012 (PowerShell + Docker Desktop, apps on host in dev), ADR-013 (supply-chain guards).
 - M1: pnpm workspace (apps/web, apps/api, packages/contracts, packages/database placeholder), strict TS 6.0, ESLint 9 + Prettier, Compose infra (3× Postgres 18.6 with trp_migrator/trp_runtime roles, Redis 8.10.2 noeviction, Nginx 1.30.6 on 127.0.0.1:8080), Nest health live/ready, Next placeholder page showing readiness, Dockerfiles, replica demo overlay, local setup and secret-scan scripts.
-- Git: repo initialized on `main`; identity `Tanvi <tanvi.jain@fiftyfivetech.io>` from global config, confirmed by the user. No remote; nothing pushed.
+- Git: `main` tracks `origin` (https://github.com/tnvi55/team-request-portal.git); first push 2026-10-21 after a clean secret scan. Identity `Tanvi <tanvi.jain@fiftyfivetech.io>` from global config, confirmed by the user.
 
 ## Verified commands and results (2026-10-21)
 
