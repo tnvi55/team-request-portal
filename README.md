@@ -2,7 +2,7 @@
 
 A local multi-tenant SaaS learning project: employees submit equipment/software requests, reviewers approve or reject, and organization admins manage accounts.
 
-**Current status: M1 complete (workspace and local infrastructure).** The web and API apps are placeholders with health checks; sign-in, requests, and administration arrive in later milestones. Progress lives in [plan.md](plan.md) and [session_state.md](session_state.md).
+**Current status: M2 complete (schemas, shard routing, synthetic data).** Databases, shard directory, row-level security, and demo data exist; the web and API still expose only health checks. Sign-in, requests, and administration arrive in M3 onward. Progress lives in [plan.md](plan.md) and [session_state.md](session_state.md).
 
 ## Selected stack and requirements
 
@@ -49,6 +49,9 @@ First run, from the repository root:
 pnpm install          # dependencies from the committed lockfile
 pnpm local:setup      # checks prerequisites; creates .env with random local secrets (safe to re-run)
 pnpm infra:up         # starts 3x Postgres, Redis, Nginx and waits until healthy
+pnpm db:migrate:all   # applies control migrations + the same tenant history to both shards
+pnpm db:seed          # 3 demo companies, 4 users each, 64 requests each (safe to re-run)
+pnpm db:verify        # read-only checks: shard histories, RLS, roles, data placement
 pnpm dev              # Next.js on 127.0.0.1:3000 + NestJS on 127.0.0.1:3001
 ~~~
 
@@ -60,14 +63,19 @@ Daily commands:
 | --- | --- |
 | `pnpm infra:up` / `pnpm infra:down` | Start / stop containers. Data volumes are kept |
 | `pnpm dev` | Development servers with hot reload (Ctrl+C to stop) |
+| `pnpm db:migrate:all` | Apply committed migrations to control, shard A, shard B (stops on first failure) |
+| `pnpm db:seed` / `pnpm db:verify` | Idempotent demo data / read-only database evidence |
+| `pnpm db:generate` | Regenerate the two Prisma clients after a schema change |
 | `pnpm verify` | Format check, lint, typecheck, unit tests. Run before every commit |
-| `pnpm test:integration` | API tests against the real local Postgres/Redis (needs `infra:up`) |
+| `pnpm test:integration` | Database isolation tests (in separate `*_test` databases) and API tests against real Postgres/Redis (needs `infra:up`) |
 | `pnpm build` | Production build of contracts, API, and web |
 | `pnpm demo:up` / `pnpm demo:down` | Production images: 2x API + 2x web behind the proxy, and back to dev mode |
 | `pnpm secrets:scan` | Scan Git history for committed secrets (local gitleaks container) |
 | `pnpm format` | Apply Prettier formatting |
 
-Not yet available: `db:generate`, `db:migrate:all`, `db:seed` (M2), `test:e2e` (M3), `demo:verify` (M8).
+Not yet available: `test:e2e` (M3), `demo:verify` (M8).
+
+Demo accounts: `pnpm db:seed` writes random passwords for `admin|manager|employee|employee2@<atlas|cedar|birch>.example` to `.local/demo-credentials.json` (Git-ignored). Sign-in arrives in M3.
 
 Health endpoints: `GET /api/v1/health/live` (process alive) and `GET /api/v1/health/ready` (200 when all dependencies answer, otherwise 503 listing which one is down; no hostnames or errors exposed).
 
@@ -79,7 +87,7 @@ All bound to 127.0.0.1, never to the network.
 | --- | --- |
 | 8080 | Nginx: the app |
 | 3000 / 3001 | Next.js / NestJS dev servers |
-| 5433 / 5434 / 5435 | Postgres control / shard A / shard B |
+| 5433 / 5434 / 5435 | Postgres control / shard A / shard B (databases `trp_control`, `trp_shard_a`, `trp_shard_b`, plus `*_test` copies for integration tests) |
 | 6380 | Redis |
 
 ### Troubleshooting

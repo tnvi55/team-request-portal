@@ -168,15 +168,17 @@ Learn: reverse proxy, same-origin, liveness vs readiness. Exercise: stop Redis a
 
 ### M2 — schemas, shard routing, and synthetic data
 
-- [ ] Define control schema and tenant schema; generate clients separately for the two schema TYPES.
-- [ ] Reuse the tenant schema/client type with one bounded client/pool per configured shard.
-- [ ] Add directory mappings: Atlas and Cedar -> shard A; Birch -> shard B.
-- [ ] Apply all tenant migrations and RLS policies to both shards.
-- [ ] Seed 3 organizations and ADMIN/MANAGER/EMPLOYEE accounts for each, using synthetic data only.
-- [ ] Generate demo credentials locally into a Git-ignored file.
-- [ ] Seed enough requests to exercise pagination (at least 60 per organization, with varied status).
-- [ ] Provide non-destructive, idempotent migration/seed verification commands.
-- [ ] Add integration coverage for same-shard tenant isolation as well as cross-shard routing.
+- [x] Define control schema and tenant schema; generate clients separately for the two schema TYPES.
+- [x] Reuse the tenant schema/client type with one bounded client/pool per configured shard.
+- [x] Add directory mappings: Atlas and Cedar -> shard A; Birch -> shard B.
+- [x] Apply all tenant migrations and RLS policies to both shards.
+- [x] Seed 3 organizations and ADMIN/MANAGER/EMPLOYEE accounts for each, using synthetic data only.
+- [x] Generate demo credentials locally into a Git-ignored file.
+- [x] Seed enough requests to exercise pagination (at least 60 per organization, with varied status).
+- [x] Provide non-destructive, idempotent migration/seed verification commands.
+- [x] Add integration coverage for same-shard tenant isolation as well as cross-shard routing.
+
+Status: gate passed 2026-10-21 (`pnpm db:verify`: 22 checks; 16 isolation tests as trp_runtime; seed run twice with zero new rows).
 
 Gate: database evidence shows identical tenant schema versions, the expected company distribution, forced RLS, and stable counts after running seed twice. Never run destructive reset against an unknown database.
 
@@ -298,6 +300,7 @@ Commands marked M1 exist in the root package.json and were run in M1. The others
 | pnpm db:generate | Generate both client types | M2 |
 | pnpm db:migrate:all | Apply control migrations and the same tenant migration history to both shards | M2 |
 | pnpm db:seed | Idempotent synthetic seed; protect non-local targets | M2 |
+| pnpm db:verify | Read-only evidence: identical shard histories, forced RLS, role flags, tenant distribution | M2 |
 | pnpm dev | Start development apps with documented same-origin access | M1 |
 | pnpm lint / pnpm typecheck / pnpm format:check | Static quality checks | M1 |
 | pnpm verify | Pre-commit gate: format check, lint, typecheck, and unit tests in one command | M1 |

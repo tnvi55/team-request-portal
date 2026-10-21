@@ -92,11 +92,14 @@ Rule: stable releases only, at least 7 days old (enforced by `minimumReleaseAge`
 | gitleaks | `zricethezav/gitleaks:v8.30.1` | Local secret scan; no hosted service |
 
 Planned for later milestones (versions re-checked when installed, same 7-day rule):
-- M2: Prisma ORM 7.10.1 (`prisma`, `@prisma/client`, `@prisma/adapter-pg`). Note: npm's `latest` tag currently points to 8.0.0-rc.23, a release candidate; pin 7.x explicitly.
-- M3: express-session 1.19.x + connect-redis 10.x (Redis session store), argon2 0.45.x (Argon2id), Playwright 1.64.x (browser E2E), class-validator 0.15.x + class-transformer 0.5.x with Nest `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })` for DTOs.
+- M2 (installed): Prisma ORM **7.10.0** (`prisma`, `@prisma/client`, `@prisma/adapter-pg`). 7.10.1 was blocked by the 7-day rule (published 2026-10-15). npm's `latest` tag points to 8.0.0-rc.23, a release candidate; 7.x is pinned explicitly.
+- M2 (installed): **@node-rs/argon2 2.2.2** for Argon2id instead of `argon2`: maintained, defaults to Argon2id, prebuilt binaries with no install script (fits `allowBuilds`). Parameters: 19 MiB, t=2, p=1 (`packages/database/src/passwords.ts`).
+- M3: express-session 1.19.x + connect-redis 10.x (Redis session store), Playwright 1.64.x (browser E2E), class-validator 0.15.x + class-transformer 0.5.x with Nest `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })` for DTOs.
 - M7: nestjs-pino 5.x / pino-http for structured logs with request IDs.
 
-Install-script policy: pnpm runs dependency install scripts only when listed in `allowBuilds` (`@swc/core` allowed; `unrs-resolver` denied because pnpm already installs its native binary).
+Install-script policy: pnpm runs dependency install scripts only when listed in `allowBuilds` (`@swc/core`, `prisma`, `@prisma/engines` allowed; `unrs-resolver` denied because pnpm already installs its native binary).
+
+Follow-up (found 2026-10-21): npm now marks ESLint 9.39.5 as unsupported. ESLint is a development tool only, and ESLint 10 still breaks eslint-config-next's plugins. Re-check before M8; options are ESLint 10 once Next's plugins support it, or configuring the Next/React plugins directly.
 
 ## ADR-011 — Lightweight Claude project context
 
@@ -118,6 +121,17 @@ Status: selected in M1.
 pnpm `minimumReleaseAge: 10080` (7 days), `allowBuilds` allowlist for install scripts, exact versions, committed lockfile, exact image tags, local gitleaks scan.
 Reason: compromised packages are typically discovered within days of publication; install scripts are the usual execution path.
 Consequence: brand-new patch releases are adopted a week late. An urgent security fix can be added to `minimumReleaseAgeExclude` with a note.
+
+## ADR-014 — Migration workflow, database roles, and test databases
+
+Status: selected in M2.
+- Migrations are committed SQL. The first migration per schema came from `prisma migrate diff --from-empty --to-schema`; security rules (RLS, CHECK constraints, grants) are a hand-written migration because Prisma's schema language cannot express them.
+- `prisma migrate dev` is not used: it needs a shadow database and CREATEDB, which trp_migrator deliberately lacks. New migrations: `prisma migrate diff --from-config-datasource --to-schema <schema> --script` against the migrated dev database, reviewed, then applied everywhere with `pnpm db:migrate:all`.
+- trp_migrator owns the `public` schema but cannot create schemas; Prisma's generated `CREATE SCHEMA IF NOT EXISTS "public"` line was removed from the init migrations.
+- Every migration that creates a table must grant trp_runtime explicitly (no default privileges), so new tables are unreachable until someone decides their access.
+- Integration tests use isolated `*_test` databases on the same servers, created by `test:prepare` (local superuser only for CREATE DATABASE) and reset by the tests; they never touch seeded demo data.
+Reason: least privilege for every role, reviewable SQL, and tests that can safely write and truncate.
+Consequence: slightly more manual migration steps than `migrate dev`.
 
 ## Deferred questions / parking lot
 

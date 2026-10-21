@@ -90,7 +90,9 @@ Deliver small working milestones; do not generate the entire application at once
 ## Commands and hooks
 
 - Verified in M1 (root package.json): local:setup, infra:up/down/ps, dev, build, lint, typecheck, format/format:check, test:unit, test:integration (needs infra:up), verify, secrets:scan, demo:up/down.
-- Not yet implemented: db:* (M2), test:e2e (M3), demo:verify (M8). See the command table in plan.md.
+- Verified in M2: db:generate, db:migrate:all, db:seed, db:verify. Database integration tests use isolated *_test databases (`pnpm --filter @trp/database test:integration` prepares them).
+- Not yet implemented: test:e2e (M3), demo:verify (M8). See the command table in plan.md.
+- New migrations: follow ADR-014 (migrate diff, never migrate dev or db push); every new table needs explicit trp_runtime grants.
 - Run `pnpm verify` before committing; run `pnpm test:integration` when API/infra behavior changes.
 - On Windows, stopping a background `pnpm dev` can leave node processes on 3000/3001; stop only those PIDs.
 - Inspect existing package.json scripts before claiming a command is available.

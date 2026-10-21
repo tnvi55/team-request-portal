@@ -132,13 +132,15 @@ RLS adds a database boundary for companies sharing a shard; it supplements servi
 - Test a raw runtime-role query with missing tenant context and attempted cross-company writes.
 - Keep raw SQL narrowly scoped to safe RLS setup, role setup, and necessary locking. Never concatenate caller input.
 
+Implemented in M2 (`packages/database/prisma/tenant/migrations/*_rls_checks_grants`): policies compare `tenant_id` with `NULLIF(current_setting('app.tenant_id', true), '')::uuid` (a reset custom setting returns an empty string, so NULLIF turns it into "no tenant"); CHECK constraints enforce title/description lengths, PENDING-vs-decided reviewer state, no self-review, and a rejection comment; trp_runtime has SELECT/INSERT/UPDATE on requests and SELECT/INSERT on request_audit_events. `withTenant` (`packages/database/src/tenant-transaction.ts`) validates the UUID and calls `set_config` with a bound parameter inside `$transaction`.
+
 This is deliberately included because a shared shard should have an independently testable tenant boundary. It adds a small amount of database setup; do not generalize it into a framework.
 
 ### Prisma and migrations
 
 Use two schema types: control and tenant. Generate distinct clients for those types; instantiate the tenant client against each known shard URL using the adapter/connection API documented for the selected Prisma version.
 
-Maintain a small singleton client registry keyed by configured shard key. It is configuration/pool reuse, not per-user state. Do not create a Prisma client per request, hold unbounded tenant pools, or choose URLs from input.
+Implemented as `ShardRegistry` (`packages/database/src/shard-registry.ts`); the API holds one control client and one registry in `DatabaseService`, pools capped at 5 connections each. Maintain a small singleton client registry keyed by configured shard key. It is configuration/pool reuse, not per-user state. Do not create a Prisma client per request, hold unbounded tenant pools, or choose URLs from input.
 
 Use one tenant migration history and apply it to both physical shards. The migration orchestration must stop and report partial failure; compare migration status before considering the environment ready. No automatic schema modification during HTTP requests. Do not use db push as a substitute for committed migration history.
 

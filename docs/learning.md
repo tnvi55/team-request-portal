@@ -31,13 +31,16 @@ Where: [infra/postgres/init/01-roles.sh](../infra/postgres/init/01-roles.sh).
 
 ## Data
 
-**Control database vs tenant shards.** The control database holds who can sign in (User), companies (Organization), who belongs where with what role (Membership), and which shard each company uses (TenantDirectory). The two shards hold business data (Request, RequestAuditEvent). Not built yet (M2).
+**Control database vs tenant shards.** The control database holds who can sign in (User), companies (Organization), who belongs where with what role (Membership), and which shard each company uses (TenantDirectory). The two shards hold business data (Request, RequestAuditEvent). Where: [control schema](../packages/database/prisma/control/schema.prisma), [tenant schema](../packages/database/prisma/tenant/schema.prisma).
 
-**Horizontal sharding, directory-based.** Splitting *rows* (not columns) across separate databases. "Directory-based" means a lookup table decides where each company lives, instead of a hash formula. It is easy to inspect and move a company later; the cost is that the directory becomes a dependency. Not built yet (M2).
+**Horizontal sharding, directory-based.** Splitting *rows* (not columns) across separate databases. "Directory-based" means a lookup table decides where each company lives, instead of a hash formula. It is easy to inspect and move a company later; the cost is that the directory becomes a dependency.
+Where: `TenantDirectory` table, [directory.ts](../packages/database/src/directory.ts) (`resolveShardKey` throws when an entry is missing), [shard-registry.ts](../packages/database/src/shard-registry.ts). Try: `pnpm db:verify` prints the directory and where each company's rows physically live.
 
-**Migrations.** Versioned SQL files that change the schema step by step, committed to Git. Both shards apply exactly the same history so the code can treat them identically. Not built yet (M2).
+**Migrations.** Versioned SQL files that change the schema step by step, committed to Git. Both shards apply exactly the same history so the code can treat them identically.
+Where: `packages/database/prisma/*/migrations`, applied by [migrate-all.ts](../packages/database/src/scripts/migrate-all.ts); workflow in ADR-014.
 
-**Row-level security (RLS).** A Postgres feature: a policy says "only show rows where `tenant_id` equals the current setting". The API sets that setting at the start of each transaction. Even if a query forgets a `WHERE tenant_id = ...`, Postgres still hides other companies' rows. It only works if the app connects as a role that is not a superuser or table owner. Not built yet (M2/M4).
+**Row-level security (RLS).** A Postgres feature: a policy says "only show rows where `tenant_id` equals the current setting". The API sets that setting at the start of each transaction. Even if a query forgets a `WHERE tenant_id = ...`, Postgres still hides other companies' rows. It only works if the app connects as a role that is not a superuser or table owner (FORCE extends it to the owner too).
+Where: [RLS migration](../packages/database/prisma/tenant/migrations/20261021120100_rls_checks_grants/migration.sql), [tenant-transaction.ts](../packages/database/src/tenant-transaction.ts), proven by [tenant-isolation.int-spec.ts](../packages/database/test/tenant-isolation.int-spec.ts). Turning RLS off on the test shard made 8 of 16 tests fail.
 
 **Transactions.** A group of statements that either all commit or all roll back. "Update request + insert audit row" in one transaction means you never have a decision without its audit record. Transactions cannot span two separate databases, which is why request audits live on the shard and account audits live in control. Not built yet (M4/M5).
 
@@ -47,9 +50,16 @@ Where: [infra/postgres/init/01-roles.sh](../infra/postgres/init/01-roles.sh).
 
 **Cursor pagination.** Instead of "page 3" (OFFSET, which skips or repeats rows when data changes), the server returns an opaque cursor pointing at the last row seen. The next page continues after it. The cursor is signed so a caller cannot edit it to read another company's data. Not built yet (M4).
 
+**Idempotent seed.** Running the seed twice must not duplicate data. Rows get deterministic ids (a hash of "atlas:request:7"), inserts skip duplicates, and existing users are never overwritten.
+Where: [seed.ts](../packages/database/src/scripts/seed.ts), [seed-data.ts](../packages/database/src/scripts/seed-data.ts).
+
+**Database CHECK constraints.** Rules the database itself refuses to break, even if application code has a bug: no self-review, a rejection needs a comment, titles 3-120 characters.
+Where: the same RLS migration file.
+
 ## Authentication and security
 
-**Password hashing (Argon2id).** Passwords are never stored. A slow, memory-hard hash is stored instead; login hashes the attempt and compares. Slowness makes brute-forcing a stolen database expensive. Not built yet (M3).
+**Password hashing (Argon2id).** Passwords are never stored. A slow, memory-hard hash is stored instead; login hashes the attempt and compares. Slowness makes brute-forcing a stolen database expensive.
+Where: [passwords.ts](../packages/database/src/passwords.ts) (used by the seed in M2; login uses it in M3).
 
 **Cookie sessions vs JWT.** A session cookie holds a random ID; the real session data is in Redis. To log someone out, delete the Redis key. A JWT holds the data itself and stays valid until it expires, which makes instant revocation harder. Either can work with stateless app processes; sessions are simpler here. Not built yet (M3).
 

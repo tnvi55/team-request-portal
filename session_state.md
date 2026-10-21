@@ -2,39 +2,35 @@
 
 Last updated: 2026-10-21
 Project: Team Request & Approval Portal
-Current milestone: M2 — schemas, shard routing, and synthetic data (not started)
-Implementation status: M0 and M1 complete and verified
+Current milestone: M3 — secure authentication vertical slice (not started)
+Implementation status: M0, M1, M2 complete and verified
 
 ## Completed
 
-- Docs: START_HERE.md prompts moved to docs/prompts.md; added docs/learning.md, per-milestone "Learn" checkpoints, priority tiers, `pnpm verify` and `pnpm secrets:scan` in plan.md; data-model and concurrent-decision diagrams in architecture.md.
-- M0: environment checked (Node 24.21.0, Docker 29.8.2 / Compose 5.5.1, Git 2.41, WSL2 with docker-desktop distro only; `claude` CLI not on PATH, VS Code extension used). pnpm 12.13.0 installed via npm. Versions recorded in ADR-010; ADR-012 (PowerShell + Docker Desktop, apps on host in dev), ADR-013 (supply-chain guards).
-- M1: pnpm workspace (apps/web, apps/api, packages/contracts, packages/database placeholder), strict TS 6.0, ESLint 9 + Prettier, Compose infra (3× Postgres 18.6 with trp_migrator/trp_runtime roles, Redis 8.10.2 noeviction, Nginx 1.30.6 on 127.0.0.1:8080), Nest health live/ready, Next placeholder page showing readiness, Dockerfiles, replica demo overlay, local setup and secret-scan scripts.
-- Git: `main` tracks `origin` (https://github.com/tnvi55/team-request-portal.git); first push 2026-10-21 after a clean secret scan. Identity `Tanvi <tanvi.jain@fiftyfivetech.io>` from global config, confirmed by the user.
+- M0/M1: workspace, infra, health checks, replica demo (details in plan.md and the Learning Guide).
+- M2 (branch `m2-schemas-sharding`): Prisma 7.10.0 control + tenant schemas and generated clients in `packages/database`; init migrations + hand-written RLS/CHECK/grants migrations; `ShardRegistry`, `resolveShardKey`, `withTenant`, Argon2id helper (@node-rs/argon2); idempotent seed (Atlas, Cedar -> shard A; Birch -> shard B; 4 users and 64 requests each; credentials in `.local/demo-credentials.json`); read-only `db:verify`; isolated `*_test` databases; API `DatabaseService` and readiness through Prisma.
+- Decisions: ADR-010 updated (Prisma 7.10.0 because 7.10.1 is under the 7-day rule; @node-rs/argon2), ADR-014 (migration workflow, roles, test databases).
+- Git: `main` tracks `origin` (https://github.com/tnvi55/team-request-portal.git). Identity `Tanvi <tanvi.jain@fiftyfivetech.io>`.
 
 ## Verified commands and results (2026-10-21)
 
 | Command | Result |
 | --- | --- |
-| `pnpm local:setup` (twice) | All prerequisites ok; first run created .env, second run "nothing changed" |
-| `pnpm infra:up` | 5 containers healthy; all ports bound to 127.0.0.1 |
-| Role check via psql | trp_migrator/trp_runtime on all 3 DBs: not superuser, no BYPASSRLS; public schema owned by trp_migrator |
-| `pnpm verify` | Prettier clean, ESLint clean, typecheck ok, 5/5 unit tests |
-| `pnpm test:integration` | 4/4 against real Postgres/Redis (live 200; ready 200; Redis down → 503; shard B down → 503 with no connection details) |
-| `pnpm build` | contracts, API (nest build), web (next build) ok |
-| `pnpm dev` + curl via :8080 | page 200; /api/v1/health/live 200 no-store; /ready 200 |
-| Stop Redis during dev | ready 503 (redis down), live 200; ready 200 again ~2 s after restart |
-| `pnpm demo:up` | images built; api-1/2, web-1/2 healthy; requests alternate between replicas (X-Upstream) |
-| Stop api-1 in demo | all reads 200 via api-2; api-1 logged graceful "Shutting down on SIGTERM", exit 143 in 1.6 s |
-| `pnpm demo:down` | replicas removed; proxy back to dev config |
-| `pnpm infra:down` then `infra:up` | containers removed, 4 volumes kept, probe row survived |
-| `pnpm secrets:scan` (after commit 7879cb2) | gitleaks v8.30.1: 3 commits scanned, no leaks found |
+| `pnpm db:migrate:all` (first run) | Failed on control: `permission denied for database` from Prisma's `CREATE SCHEMA IF NOT EXISTS "public"`. Line removed (ADR-014), failed attempt marked rolled back |
+| `pnpm db:migrate:all` | 2 migrations each on control, shard A, shard B; second run "No pending migrations" on all three |
+| `pnpm db:seed` twice | Run 1: per org 4 users, 64 requests, 96 audit events. Run 2: 0 / 0 / 0 |
+| `pnpm db:verify` | All checks passed: identical shard histories, RLS enabled+forced, owner trp_migrator, roles not superuser/BYPASSRLS, audit grants INSERT,SELECT, Atlas/Cedar 64 on A and 0 on B, Birch 64 on B and 0 on A, runtime without context sees 0 |
+| `pnpm --filter @trp/database test:integration` | 16/16 as trp_runtime on *_test DBs (routing, same-shard, cross-shard, no context, no pooled leak, cross-tenant insert/update denied, append-only audit, no DELETE, CHECK constraints) |
+| Same suite with RLS disabled on shard A test DB | 8/16 failed as expected; RLS restored (relrowsecurity/relforcerowsecurity = t/t) |
+| `pnpm verify` | format, lint, typecheck clean; unit 9/9 (database) + 5/5 (API) |
+| `pnpm build`, `pnpm test:integration` | ok; 16/16 database + 4/4 API |
+| `pnpm demo:up` | images build with Prisma; both API replicas ready through Prisma; `demo:down` ok |
 
 ## Not run / known gaps
 
-- Hot reload through the proxy WebSocket was not exercised manually.
-- `test:e2e`, `db:*`, `demo:verify` do not exist yet (M2/M3/M8).
-- Redis password is visible on the container command line (local-only trade-off, noted in README).
+- Readiness does not yet check migration status (runtime role cannot read `_prisma_migrations`); revisit in M7.
+- ESLint 9 is now marked unsupported by npm; follow-up recorded in ADR-010.
+- Hot reload through the proxy still not exercised manually.
 
 ## Blockers
 
@@ -42,11 +38,11 @@ None.
 
 ## Learning Guide
 
-Long-form guide for the learner (Claude Doc): https://claude.ai/artifact/7aignW34LB1LeGeG37aFYS. Covers M0 and M1. Update it after each milestone.
+Long-form guide for the learner (Claude Doc): https://claude.ai/artifact/7aignW34LB1LeGeG37aFYS. Covers M0-M2. Update it after each milestone.
 
 ## Next task
 
-M2 from plan.md: control and tenant Prisma 7.10.1 schemas, two generated clients, migrations applied to both shards with RLS and runtime grants, directory (Atlas/Cedar → shard A, Birch → shard B), idempotent synthetic seed with Git-ignored demo credentials, and same-shard plus cross-shard isolation tests. Replace the M1 pg readiness probes with the database package clients.
+M3 from plan.md: login/logout/me/change-password with Redis sessions (express-session + connect-redis), CSRF + Origin checks, shared login throttling, sessionVersion revocation, mustChangePassword gating, no-store headers, and the tests listed in the M3 gate. Use `hashPassword`/`verifyPassword` from @trp/database.
 
 ## Handoff discipline
 
