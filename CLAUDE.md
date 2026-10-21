@@ -20,6 +20,7 @@ Deliver small working milestones; do not generate the entire application at once
 - session_state.md owns the current handoff and last verified commands.
 - README.md owns user-facing setup; docs/demo.md owns the mentor walkthrough.
 - docs/learning.md owns plain-language concept notes; add or update the relevant entry when a milestone implements a concept.
+- After every completed milestone, also update the long-form Learning Guide (Claude Doc): https://claude.ai/artifact/7aignW34LB1LeGeG37aFYS. Add a "Mx explained" section, extend the repository tour, bugs, commands, glossary, and the update log.
 - These Markdown files are project context, not proof of enforcement. Implement checks in code, tests, and configuration.
 - Auto memory is supplementary. Promote enduring decisions into the appropriate versioned document.
 

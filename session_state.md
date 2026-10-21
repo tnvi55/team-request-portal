@@ -40,6 +40,10 @@ Implementation status: M0 and M1 complete and verified
 
 None.
 
+## Learning Guide
+
+Long-form guide for the learner (Claude Doc): https://claude.ai/artifact/7aignW34LB1LeGeG37aFYS. Covers M0 and M1. Update it after each milestone.
+
 ## Next task
 
 M2 from plan.md: control and tenant Prisma 7.10.1 schemas, two generated clients, migrations applied to both shards with RLS and runtime grants, directory (Atlas/Cedar → shard A, Birch → shard B), idempotent synthetic seed with Git-ignored demo credentials, and same-shard plus cross-shard isolation tests. Replace the M1 pg readiness probes with the database package clients.
