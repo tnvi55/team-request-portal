@@ -8,10 +8,13 @@ FROM base AS build
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY apps/api/package.json apps/api/
 COPY packages/contracts/package.json packages/contracts/
+COPY packages/database/package.json packages/database/
 RUN pnpm install --frozen-lockfile --filter "@trp/api..."
 COPY packages/contracts packages/contracts
+COPY packages/database packages/database
 COPY apps/api apps/api
-RUN pnpm --filter @trp/contracts build && pnpm --filter @trp/api build
+# The database build runs prisma generate, then compiles the generated clients into dist/.
+RUN pnpm --filter @trp/contracts build && pnpm --filter @trp/database build && pnpm --filter @trp/api build
 # Self-contained folder with production dependencies only.
 RUN pnpm --filter @trp/api deploy --prod --legacy /out
 

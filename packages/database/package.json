@@ -2,6 +2,36 @@
   "name": "@trp/database",
   "version": "0.0.0",
   "private": true,
-  "description": "Server-only Prisma schemas, clients, migrations, seed, and shard routing. Implemented in M2.",
-  "type": "module"
+  "description": "Server-only Prisma schemas, clients, migrations, seed, and shard routing.",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "generate": "prisma generate --config prisma/control/prisma.config.ts && prisma generate --config prisma/tenant/prisma.config.ts",
+    "build": "pnpm generate && tsc -p tsconfig.build.json",
+    "typecheck": "pnpm build && tsc -p tsconfig.json",
+    "migrate:all": "pnpm build && node dist/scripts/migrate-all.js",
+    "seed": "pnpm build && node dist/scripts/seed.js",
+    "verify": "pnpm build && node dist/scripts/verify.js",
+    "test:prepare": "pnpm build && node dist/scripts/test-prepare.js",
+    "test:unit": "pnpm generate && vitest run",
+    "test:integration": "pnpm test:prepare && vitest run -c vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "2.2.2",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "prisma": "7.10.0"
+  }
 }

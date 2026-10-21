@@ -18,8 +18,8 @@ test-results/
 CLAUDE.local.md
 .claude/settings.local.json
 
-# Generated server-only database clients (update if M1 chooses another path)
-packages/database/generated/
+# Generated server-only Prisma clients (pnpm db:generate)
+packages/database/src/generated/
 
 # Local runtime data and dumps; do not ignore committed SQL migrations
 docker-data/

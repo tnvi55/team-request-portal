@@ -1,0 +1,84 @@
+// Tenant business schema. The SAME schema and migration history is applied to every shard
+// (shard A: Atlas + Cedar, shard B: Birch). Row-level security isolates tenants sharing a shard.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../../src/generated/tenant"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RequestCategory {
+  EQUIPMENT
+  SOFTWARE
+  OTHER
+
+  @@map("request_category")
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("request_status")
+}
+
+enum RequestAuditAction {
+  REQUEST_CREATED
+  REQUEST_APPROVED
+  REQUEST_REJECTED
+
+  @@map("request_audit_action")
+}
+
+model Request {
+  /// Organization id from the control database (no cross-database foreign key is possible).
+  tenantId         String              @map("tenant_id") @db.Uuid
+  id               String              @id @default(uuid(7)) @db.Uuid
+  title            String              @db.VarChar(120)
+  description      String              @db.VarChar(2000)
+  category         RequestCategory
+  status           RequestStatus       @default(PENDING)
+  /// Control user ids, stored as plain values (validated by the application).
+  createdByUserId  String              @map("created_by_user_id") @db.Uuid
+  reviewedByUserId String?             @map("reviewed_by_user_id") @db.Uuid
+  reviewComment    String?             @map("review_comment") @db.VarChar(500)
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  reviewedAt       DateTime?           @map("reviewed_at") @db.Timestamptz(3)
+  /// Optimistic concurrency: a decision updates only the version the reviewer saw (M5).
+  version          Int                 @default(0)
+  auditEvents      RequestAuditEvent[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([tenantId, status, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([tenantId, category, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([tenantId, createdByUserId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("requests")
+}
+
+/// Request history. Append-only for the runtime role (SELECT/INSERT grants only).
+model RequestAuditEvent {
+  tenantId             String             @map("tenant_id") @db.Uuid
+  id                   String             @id @default(uuid(7)) @db.Uuid
+  requestId            String             @map("request_id") @db.Uuid
+  actorUserId          String             @map("actor_user_id") @db.Uuid
+  action               RequestAuditAction
+  occurredAt           DateTime           @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  /// The HTTP request id that caused this event, for log correlation.
+  correlationRequestId String?            @map("correlation_request_id") @db.VarChar(64)
+  /// Allowlisted state changes only; never raw request bodies or secrets.
+  metadata             Json               @default("{}")
+  /// Composite key keeps an event on the same tenant as its request.
+  request              Request            @relation(fields: [tenantId, requestId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, occurredAt(sort: Desc), id(sort: Desc)])
+  @@index([tenantId, requestId])
+  @@map("request_audit_events")
+}

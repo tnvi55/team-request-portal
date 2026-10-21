@@ -10,6 +10,9 @@ allowBuilds:
   '@swc/core': true
   # Only re-verifies a native binary that pnpm already installs via optionalDependencies.
   unrs-resolver: false
+  # Prisma CLI: version check, and download of the schema-engine binary used by migrate.
+  prisma: true
+  '@prisma/engines': true
 
 # Write exact versions to package.json (the lockfile pins transitive ones).
 saveExact: true

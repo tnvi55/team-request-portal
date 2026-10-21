@@ -12,3 +12,4 @@
 docker-data
 dumps
 backups
+**/src/generated
