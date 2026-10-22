@@ -39,6 +39,30 @@ describe('parseEnv', () => {
     );
   });
 
+  it('uses non-Secure cookies only for loopback http and Secure cookies for https', () => {
+    expect(parseEnv(validEnv).COOKIE_SECURE).toBe(false);
+    expect(parseEnv({ ...validEnv, APP_ORIGIN: 'https://portal.example' }).COOKIE_SECURE).toBe(true);
+  });
+
+  it('refuses plain http on a non-loopback origin', () => {
+    expect(() => parseEnv({ ...validEnv, APP_ORIGIN: 'http://portal.example' })).toThrow(/APP_ORIGIN/);
+  });
+
+  it('applies the planned session and limit defaults', () => {
+    const config = parseEnv(validEnv);
+    expect(config.SESSION_IDLE_SECONDS).toBe(1800);
+    expect(config.SESSION_ABSOLUTE_SECONDS).toBe(28800);
+    expect(config.LOGIN_LIMIT_PER_ACCOUNT).toBe(5);
+    expect(config.LOGIN_LIMIT_PER_IP).toBe(30);
+    expect(config.LIMIT_WINDOW_SECONDS).toBe(900);
+  });
+
+  it('rejects an idle timeout longer than the absolute lifetime', () => {
+    expect(() =>
+      parseEnv({ ...validEnv, SESSION_IDLE_SECONDS: '600', SESSION_ABSOLUTE_SECONDS: '300' }),
+    ).toThrow(/SESSION_IDLE_SECONDS/);
+  });
+
   it('reports every missing variable at once', () => {
     expect(() => parseEnv({})).toThrow(/CONTROL_DATABASE_URL[\s\S]*REDIS_URL/);
   });

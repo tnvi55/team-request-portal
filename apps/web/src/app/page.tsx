@@ -1,12 +1,6 @@
-import { HealthStatus } from './health-status';
+import { redirect } from 'next/navigation';
 
-// M1 placeholder: proves the browser reaches Next.js and NestJS through one origin (localhost:8080).
+// The app starts at the dashboard; RequireAuth sends signed-out visitors to /login.
 export default function HomePage() {
-  return (
-    <main className="page">
-      <h1>Team Request Portal</h1>
-      <p className="muted">Workspace foundation (M1). Sign-in and requests arrive in later milestones.</p>
-      <HealthStatus />
-    </main>
-  );
+  redirect('/dashboard');
 }

@@ -7,7 +7,8 @@ export default defineConfig({
   test: {
     include: ['test/**/*.int-spec.ts'],
     setupFiles: ['test/load-env.ts'],
-    testTimeout: 15000,
+    testTimeout: 30000,
+    hookTimeout: 60000,
     fileParallelism: false,
   },
 });

@@ -11,6 +11,11 @@ const nextConfig: NextConfig = {
   turbopack: { root: repoRoot },
   poweredByHeader: false,
   reactStrictMode: true,
+  // Pages are client-rendered shells, but never let a shared cache keep one (plan: private pages
+  // use no-store). Hashed /_next/static assets keep their own long-lived caching.
+  async headers() {
+    return [{ source: '/((?!_next/static).*)', headers: [{ key: 'Cache-Control', value: 'no-store' }] }];
+  },
 };
 
 export default nextConfig;
