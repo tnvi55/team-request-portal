@@ -177,6 +177,8 @@ CSRF:
 - No permissive credentialed CORS. The normal web app uses one origin.
 - Mark auth and private data responses Cache-Control: no-store.
 
+Implemented in M3: `apps/api/src/auth/` (session middleware, CsrfGuard, SessionAuthGuard, AuthService, AuthController), shared Redis client and limiter in `apps/api/src/redis/`, error shape in `apps/api/src/common/`. Details and trade-offs: ADR-015.
+
 Role/disable revocation:
 - Re-read user + membership + organization on every protected call, without an authorization cache.
 - Updating a role affects the next protected call even on another API instance.

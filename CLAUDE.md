@@ -91,7 +91,9 @@ Deliver small working milestones; do not generate the entire application at once
 
 - Verified in M1 (root package.json): local:setup, infra:up/down/ps, dev, build, lint, typecheck, format/format:check, test:unit, test:integration (needs infra:up), verify, secrets:scan, demo:up/down.
 - Verified in M2: db:generate, db:migrate:all, db:seed, db:verify. Database integration tests use isolated *_test databases (`pnpm --filter @trp/database test:integration` prepares them).
-- Not yet implemented: test:e2e (M3), demo:verify (M8). See the command table in plan.md.
+- Verified in M3: test:e2e (Playwright, Chromium; needs infra up, migrated + seeded dev data, and `pnpm dev` or `pnpm demo:up` serving :8080).
+- Not yet implemented: demo:verify (M8). See the command table in plan.md.
+- API request bodies: add a zod schema in @trp/contracts and use `@Body({ schema })`; a body without a schema fails at runtime by design.
 - New migrations: follow ADR-014 (migrate diff, never migrate dev or db push); every new table needs explicit trp_runtime grants.
 - Run `pnpm verify` before committing; run `pnpm test:integration` when API/infra behavior changes.
 - On Windows, stopping a background `pnpm dev` can leave node processes on 3000/3001; stop only those PIDs.

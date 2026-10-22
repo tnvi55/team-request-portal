@@ -2,7 +2,7 @@
 
 A local multi-tenant SaaS learning project: employees submit equipment/software requests, reviewers approve or reject, and organization admins manage accounts.
 
-**Current status: M2 complete (schemas, shard routing, synthetic data).** Databases, shard directory, row-level security, and demo data exist; the web and API still expose only health checks. Sign-in, requests, and administration arrive in M3 onward. Progress lives in [plan.md](plan.md) and [session_state.md](session_state.md).
+**Current status: M3 complete (secure authentication).** Sign in at http://localhost:8080 with a seeded account; the dashboard shows who you are. Requests, approvals, and administration arrive in M4 onward. Progress lives in [plan.md](plan.md) and [session_state.md](session_state.md).
 
 ## Selected stack and requirements
 
@@ -68,14 +68,15 @@ Daily commands:
 | `pnpm db:generate` | Regenerate the two Prisma clients after a schema change |
 | `pnpm verify` | Format check, lint, typecheck, unit tests. Run before every commit |
 | `pnpm test:integration` | Database isolation tests (in separate `*_test` databases) and API tests against real Postgres/Redis (needs `infra:up`) |
+| `pnpm test:e2e` | Browser tests (Playwright/Chromium) against the running app on :8080; first time: `pnpm exec playwright install chromium` |
 | `pnpm build` | Production build of contracts, API, and web |
 | `pnpm demo:up` / `pnpm demo:down` | Production images: 2x API + 2x web behind the proxy, and back to dev mode |
 | `pnpm secrets:scan` | Scan Git history for committed secrets (local gitleaks container) |
 | `pnpm format` | Apply Prettier formatting |
 
-Not yet available: `test:e2e` (M3), `demo:verify` (M8).
+Not yet available: `demo:verify` (M8).
 
-Demo accounts: `pnpm db:seed` writes random passwords for `admin|manager|employee|employee2@<atlas|cedar|birch>.example` to `.local/demo-credentials.json` (Git-ignored). Sign-in arrives in M3.
+Demo accounts: `pnpm db:seed` writes random passwords for `admin|manager|employee|employee2@<atlas|cedar|birch>.example` to `.local/demo-credentials.json` (Git-ignored). Use them on the sign-in page. Five wrong attempts on one account block it for 15 minutes (Retry-After tells you how long).
 
 Health endpoints: `GET /api/v1/health/live` (process alive) and `GET /api/v1/health/ready` (200 when all dependencies answer, otherwise 503 listing which one is down; no hostnames or errors exposed).
 

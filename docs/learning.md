@@ -61,21 +61,30 @@ Where: the same RLS migration file.
 **Password hashing (Argon2id).** Passwords are never stored. A slow, memory-hard hash is stored instead; login hashes the attempt and compares. Slowness makes brute-forcing a stolen database expensive.
 Where: [passwords.ts](../packages/database/src/passwords.ts) (used by the seed in M2; login uses it in M3).
 
-**Cookie sessions vs JWT.** A session cookie holds a random ID; the real session data is in Redis. To log someone out, delete the Redis key. A JWT holds the data itself and stays valid until it expires, which makes instant revocation harder. Either can work with stateless app processes; sessions are simpler here. Not built yet (M3).
+**Cookie sessions vs JWT.** A session cookie holds a random ID; the real session data is in Redis. To log someone out, delete the Redis key. A JWT holds the data itself and stays valid until it expires, which makes instant revocation harder. Either can work with stateless app processes; sessions are simpler here.
+Where: [session.middleware.ts](../apps/api/src/auth/session.middleware.ts). Proven in M3: one login served by both demo API replicas, and still valid after one replica stopped.
 
-**HttpOnly, SameSite.** HttpOnly means JavaScript cannot read the cookie, so a script injection cannot steal it. SameSite=Lax means the browser does not send it on most cross-site requests. Not built yet (M3).
+**HttpOnly, SameSite.** HttpOnly means JavaScript cannot read the cookie, so a script injection cannot steal it. SameSite=Lax means the browser does not send it on most cross-site requests.
+Where: `sessionCookieOptions` in session.middleware.ts; the browser test checks `document.cookie` cannot see it.
 
-**CSRF.** A malicious site can make your browser send a POST to our app with your cookie attached. Defence: every unsafe request must also carry a secret token the malicious site cannot read, plus a matching Origin header. Not built yet (M3).
+**CSRF.** A malicious site can make your browser send a POST to our app with your cookie attached. Defence: every unsafe request must also carry a secret token the malicious site cannot read, plus a matching Origin header.
+Where: [csrf.guard.ts](../apps/api/src/auth/csrf.guard.ts); the token comes from `GET /api/v1/auth/csrf` and the web client sends it in [api.ts](../apps/web/src/lib/api.ts).
 
-**Session fixation and rotation.** If an attacker can plant a session ID before you log in and the app keeps it, they share your logged-in session. Rotating (issuing a new ID) at login prevents that. Not built yet (M3).
+**Session fixation and rotation.** If an attacker can plant a session ID before you log in and the app keeps it, they share your logged-in session. Rotating (issuing a new ID) at login prevents that.
+Where: `regenerateSession` in [auth.controller.ts](../apps/api/src/auth/auth.controller.ts). Removing that one line made the fixation test fail.
 
-**Authentication vs authorization.** Authentication: who are you (session). Authorization: what may you do (current role in the control database, re-read on every request so a demotion takes effect immediately). Not built yet (M3/M4).
+**Authentication vs authorization.** Authentication: who are you (session). Authorization: what may you do (current role in the control database, re-read on every request so a demotion takes effect immediately).
+Where: [session-auth.guard.ts](../apps/api/src/auth/session-auth.guard.ts) + `loadActivePrincipal` in auth.service.ts. Role checks per endpoint arrive in M4.
 
 **Tenant context.** A server-built object (`tenantId`, `userId`, `role`, `shardKey`) derived from the session and current membership. Request bodies cannot supply or override it. Not built yet (M4).
 
+**Validation at the boundary.** Every request body is checked against a zod schema that rejects unknown fields, so a caller cannot sneak in `role: "ADMIN"`. The same schema validates the browser form.
+Where: [contracts auth.ts](../packages/contracts/src/auth.ts), [schema-validation.pipe.ts](../apps/api/src/common/schema-validation.pipe.ts).
+
 **404 vs 403.** 403 = "you are logged in but your role cannot use this endpoint". 404 for another company's record = do not even confirm it exists. Not built yet (M4).
 
-**Rate limiting.** Counting requests per user/IP in Redis and returning 429 past a limit. Stored in Redis (not process memory) so two API copies share one count. Not built yet (M3/M7).
+**Rate limiting.** Counting requests per user/IP in Redis and returning 429 past a limit. Stored in Redis (not process memory) so two API copies share one count.
+Where: [rate-limit.service.ts](../apps/api/src/redis/rate-limit.service.ts); login limits in auth.service.ts (M3), general API limits in M7. A test runs two API instances against one counter.
 
 ## Scaling and operations
 

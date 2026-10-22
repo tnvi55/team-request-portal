@@ -186,14 +186,16 @@ Learn: migrations, directory-based sharding, idempotent seeding, RLS. Exercise: 
 
 ### M3 — secure authentication vertical slice
 
-- [ ] Implement login page, current-user display, logout, and password-change UI/API.
-- [ ] Add Argon2id hashes, normalized email lookup, generic login failures, and password validation.
-- [ ] Store sessions in Redis; rotate session ID/CSRF material at successful login.
-- [ ] Enforce idle/absolute expiry and identity sessionVersion revocation.
-- [ ] Implement CSRF and exact allowed-Origin checks on all unsafe requests, including login.
-- [ ] Introduce shared login throttling now, not after shipping auth.
-- [ ] Enforce first-login password change and next-request denial after disablement.
-- [ ] Ensure public responses and private pages use appropriate no-store behavior.
+- [x] Implement login page, current-user display, logout, and password-change UI/API.
+- [x] Add Argon2id hashes, normalized email lookup, generic login failures, and password validation.
+- [x] Store sessions in Redis; rotate session ID/CSRF material at successful login.
+- [x] Enforce idle/absolute expiry and identity sessionVersion revocation.
+- [x] Implement CSRF and exact allowed-Origin checks on all unsafe requests, including login.
+- [x] Introduce shared login throttling now, not after shipping auth.
+- [x] Enforce first-login password change and next-request denial after disablement.
+- [x] Ensure public responses and private pages use appropriate no-store behavior.
+
+Status: gate passed 2026-10-22 (28 API integration tests against real Postgres/Redis, stable over 4 runs; 3 Playwright browser tests; one session served by both demo API replicas).
 
 Gate: automated tests cover valid/invalid login, logout, fixation prevention, expiry, password change/revocation, disabled accounts, CSRF failures, and shared login limits.
 
@@ -305,7 +307,7 @@ Commands marked M1 exist in the root package.json and were run in M1. The others
 | pnpm lint / pnpm typecheck / pnpm format:check | Static quality checks | M1 |
 | pnpm verify | Pre-commit gate: format check, lint, typecheck, and unit tests in one command | M1 |
 | pnpm secrets:scan | Local secret scan of the Git repository using a pinned container image; no hosted service | M1 |
-| pnpm test:unit / pnpm test:integration / pnpm test:e2e | Meaningful test layers with isolated test data | M1 (test:e2e in M3) |
+| pnpm test:unit / pnpm test:integration / pnpm test:e2e | Meaningful test layers with isolated test data | M1; test:e2e M3 (needs the app running at :8080) |
 | pnpm build | Build web and API | M1 |
 | pnpm demo:up / pnpm demo:down | Start/stop the production-build replica demo | M1 |
 | pnpm demo:verify | Run non-destructive checks for the mentor demo | M8 |

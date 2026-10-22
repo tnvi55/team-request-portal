@@ -94,7 +94,7 @@ Rule: stable releases only, at least 7 days old (enforced by `minimumReleaseAge`
 Planned for later milestones (versions re-checked when installed, same 7-day rule):
 - M2 (installed): Prisma ORM **7.10.0** (`prisma`, `@prisma/client`, `@prisma/adapter-pg`). 7.10.1 was blocked by the 7-day rule (published 2026-10-15). npm's `latest` tag points to 8.0.0-rc.23, a release candidate; 7.x is pinned explicitly.
 - M2 (installed): **@node-rs/argon2 2.2.2** for Argon2id instead of `argon2`: maintained, defaults to Argon2id, prebuilt binaries with no install script (fits `allowBuilds`). Parameters: 19 MiB, t=2, p=1 (`packages/database/src/passwords.ts`).
-- M3: express-session 1.19.x + connect-redis 10.x (Redis session store), Playwright 1.64.x (browser E2E), class-validator 0.15.x + class-transformer 0.5.x with Nest `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })` for DTOs.
+- M3 (installed): express-session 1.19.0 + connect-redis 10.0.0 (Redis session store), @playwright/test 1.64.1 (Chromium only), zod schemas in @trp/contracts validated by Nest's `StandardSchemaValidationPipe` (ADR-015) instead of the planned class-validator/class-transformer.
 - M7: nestjs-pino 5.x / pino-http for structured logs with request IDs.
 
 Install-script policy: pnpm runs dependency install scripts only when listed in `allowBuilds` (`@swc/core`, `prisma`, `@prisma/engines` allowed; `unrs-resolver` denied because pnpm already installs its native binary).
@@ -132,6 +132,18 @@ Status: selected in M2.
 - Integration tests use isolated `*_test` databases on the same servers, created by `test:prepare` (local superuser only for CREATE DATABASE) and reset by the tests; they never touch seeded demo data.
 Reason: least privilege for every role, reviewable SQL, and tests that can safely write and truncate.
 Consequence: slightly more manual migration steps than `migrate dev`.
+
+## ADR-015 — Authentication mechanics
+
+Status: selected in M3.
+- **Validation:** request bodies are zod `strictObject` schemas in @trp/contracts, attached with `@Body({ schema })` and checked by a global `StandardSchemaValidationPipe` subclass that also fails if a body has no schema. The browser forms use the same schemas. Replaces class-validator + class-transformer (the latter unreleased since 2021).
+- **Sessions:** express-session + connect-redis, cookie `trp.sid` (HttpOnly, SameSite=Lax, Secure for any https origin; config refuses plain http unless loopback). `saveUninitialized: false`, `rolling: true`, Redis TTL = 30-minute idle; the 8-hour absolute limit is stored in the session and checked by the guard. Session id regenerated at login.
+- **CSRF:** synchronizer token stored in the session, sent as `X-CSRF-Token`, compared in constant time, plus an exact `Origin` match, on every unsafe request including login and logout. Token rotates at login.
+- **Authorization data:** the guard re-reads user + membership + organization on every protected request and compares `sessionVersion`; nothing about roles is cached.
+- **Limits:** fixed windows in Redis (`MULTI INCR / EXPIRE NX / TTL`), counted before Argon2: 5 per account and 30 per IP per 15 minutes, 60 anonymous sessions per IP, 5 password-change attempts per user. Emails appear in keys only as SHA-256 prefixes.
+- **Fail closed:** session-store or limiter errors return 503; identity lookups that fail return 503.
+- **Client IP:** Express `trust proxy = loopback, uniquelocal`; Nginx overwrites X-Forwarded-For. A process on the API host could still spoof it (the API binds 127.0.0.1 in development).
+Consequence: one extra control-database read per protected request, and Redis is required for any signed-in activity.
 
 ## Deferred questions / parking lot
 
