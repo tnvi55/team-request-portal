@@ -4,6 +4,7 @@ import type { MeResponse } from '@trp/contracts';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useAuth } from '../lib/auth-context';
+import { AppNav } from './app-nav';
 
 export function AppHeader({ me }: { me: MeResponse }) {
   const { logout } = useAuth();
@@ -28,6 +29,7 @@ export function AppHeader({ me }: { me: MeResponse }) {
           · {me.user.displayName} ({me.role.toLowerCase()})
         </span>
       </div>
+      <AppNav />
       <button type="button" onClick={() => void onLogout()} disabled={pending}>
         {pending ? 'Signing out…' : 'Sign out'}
       </button>

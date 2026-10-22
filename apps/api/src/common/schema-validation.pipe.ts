@@ -4,7 +4,7 @@ import { ApiException } from './errors.js';
 /**
  * Global validation: each parameter is validated by the zod schema attached with
  * `@Body({ schema })` (schemas live in @trp/contracts and reject unknown fields).
- * A request body without a schema is a programming error, so it fails loudly instead of
+ * A body, query or path parameter without a schema is a programming error, so it fails loudly instead of
  * silently passing unvalidated input through.
  */
 export class SchemaValidationPipe extends StandardSchemaValidationPipe {
@@ -26,8 +26,11 @@ export class SchemaValidationPipe extends StandardSchemaValidationPipe {
   }
 
   override async transform<T>(value: T, metadata: ArgumentMetadata): Promise<T> {
-    if (metadata.type === 'body' && !metadata.schema) {
-      throw new Error('Request body parameter has no validation schema');
+    if (
+      (metadata.type === 'body' || metadata.type === 'query' || metadata.type === 'param') &&
+      !metadata.schema
+    ) {
+      throw new Error(`Request ${metadata.type} parameter has no validation schema`);
     }
     return super.transform(value, metadata);
   }

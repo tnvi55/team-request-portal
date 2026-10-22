@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 import type { MembershipRole } from '@trp/contracts';
+import type { ShardKey } from '@trp/database';
 
 /** The authenticated caller, rebuilt from current control-database rows on every request. */
 export interface Principal {
@@ -13,6 +14,8 @@ export interface Principal {
   organizationName: string;
   role: MembershipRole;
   mustChangePassword: boolean;
+  /** Directory entry for the organization, loaded in the same query; null = not routed. */
+  shardKey: ShardKey | null;
 }
 
 declare module 'express-session' {

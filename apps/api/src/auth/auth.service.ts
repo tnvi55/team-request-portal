@@ -110,7 +110,8 @@ export class AuthService {
     try {
       return await this.database.control.user.findUnique({
         where,
-        include: { membership: { include: { organization: true } } },
+        // One query: identity, membership, organization and its shard directory entry.
+        include: { membership: { include: { organization: { include: { directory: true } } } } },
       });
     } catch (error) {
       // Cannot read identities: fail closed rather than guess.
@@ -138,6 +139,7 @@ function toPrincipal(user: UserWithMembership): Principal | null {
     organizationName: membership.organization.name,
     role: membership.role,
     mustChangePassword: user.mustChangePassword,
+    shardKey: membership.organization.directory?.shardKey ?? null,
   };
 }
 
