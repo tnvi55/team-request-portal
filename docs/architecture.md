@@ -115,7 +115,7 @@ flowchart TD
 
 The normal routes have no tenant selector. Reject tenantId/shard/role fields in DTOs. Construct TenantContext from the authenticated membership. Never select a database using an unverified request header, URL, or query parameter.
 
-Every business query includes tenantId explicitly. EMPLOYEE list/detail queries also include createdByUserId=currentUser.id. MANAGER/ADMIN can query company records. Return 404 for a record outside the permitted tenant/ownership scope, rather than confirming another tenant's record exists. Return 403 for an authenticated caller lacking an endpoint's role.
+Implemented in M4 (`apps/api/src/tenant/`, `apps/api/src/requests/`, cursor in `apps/api/src/common/cursor.ts`); rationale in ADR-016. Every business query includes tenantId explicitly. EMPLOYEE list/detail queries also include createdByUserId=currentUser.id. MANAGER/ADMIN can query company records. Return 404 for a record outside the permitted tenant/ownership scope, rather than confirming another tenant's record exists. Return 403 for an authenticated caller lacking an endpoint's role.
 
 ### PostgreSQL row-level security
 

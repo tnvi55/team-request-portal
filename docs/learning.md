@@ -48,10 +48,14 @@ Where: [RLS migration](../packages/database/prisma/tenant/migrations/20261021120
 
 **Row lock (pessimistic concurrency).** `SELECT ... FOR UPDATE` makes other transactions wait. Used to stop two admins from demoting each other at once and leaving a company with no admin. Not built yet (M6).
 
-**Cursor pagination.** Instead of "page 3" (OFFSET, which skips or repeats rows when data changes), the server returns an opaque cursor pointing at the last row seen. The next page continues after it. The cursor is signed so a caller cannot edit it to read another company's data. Not built yet (M4).
+**Cursor pagination.** Instead of "page 3" (OFFSET, which skips or repeats rows when data changes), the server returns an opaque cursor pointing at the last row seen. The next page continues after it. The cursor is signed so a caller cannot edit it to read another company's data.
+Where: [cursor.ts](../apps/api/src/common/cursor.ts), used in [requests.service.ts](../apps/api/src/requests/requests.service.ts). Try: copy a `nextCursor` and add `&status=PENDING`; the API answers 400 "Invalid cursor".
 
 **Idempotent seed.** Running the seed twice must not duplicate data. Rows get deterministic ids (a hash of "atlas:request:7"), inserts skip duplicates, and existing users are never overwritten.
 Where: [seed.ts](../packages/database/src/scripts/seed.ts), [seed-data.ts](../packages/database/src/scripts/seed-data.ts).
+
+**Joining across databases in the app.** Requests (shard) store user ids; names live in the control database. Postgres cannot join two databases, so the API collects the ids on a page and fetches all names in ONE query (never one per row, the "N+1" problem).
+Where: [people.service.ts](../apps/api/src/requests/people.service.ts).
 
 **Database CHECK constraints.** Rules the database itself refuses to break, even if application code has a bug: no self-review, a rejection needs a comment, titles 3-120 characters.
 Where: the same RLS migration file.
@@ -76,12 +80,14 @@ Where: `regenerateSession` in [auth.controller.ts](../apps/api/src/auth/auth.con
 **Authentication vs authorization.** Authentication: who are you (session). Authorization: what may you do (current role in the control database, re-read on every request so a demotion takes effect immediately).
 Where: [session-auth.guard.ts](../apps/api/src/auth/session-auth.guard.ts) + `loadActivePrincipal` in auth.service.ts. Role checks per endpoint arrive in M4.
 
-**Tenant context.** A server-built object (`tenantId`, `userId`, `role`, `shardKey`) derived from the session and current membership. Request bodies cannot supply or override it. Not built yet (M4).
+**Tenant context.** A server-built object (`tenantId`, `userId`, `role`, `shardKey`) derived from the session and current membership. Request bodies cannot supply or override it.
+Where: [tenant-context.ts](../apps/api/src/tenant/tenant-context.ts), [tenant-db.service.ts](../apps/api/src/tenant/tenant-db.service.ts). The shard key is loaded in the same query as the membership.
 
 **Validation at the boundary.** Every request body is checked against a zod schema that rejects unknown fields, so a caller cannot sneak in `role: "ADMIN"`. The same schema validates the browser form.
 Where: [contracts auth.ts](../packages/contracts/src/auth.ts), [schema-validation.pipe.ts](../apps/api/src/common/schema-validation.pipe.ts).
 
-**404 vs 403.** 403 = "you are logged in but your role cannot use this endpoint". 404 for another company's record = do not even confirm it exists. Not built yet (M4).
+**404 vs 403.** 403 = "you are logged in but your role cannot use this endpoint". 404 for another company's record = do not even confirm it exists.
+Where: `detail()` and `resolveScope()` in requests.service.ts. The coworker test proves the 404.
 
 **Rate limiting.** Counting requests per user/IP in Redis and returning 429 past a limit. Stored in Redis (not process memory) so two API copies share one count.
 Where: [rate-limit.service.ts](../apps/api/src/redis/rate-limit.service.ts); login limits in auth.service.ts (M3), general API limits in M7. A test runs two API instances against one counter.

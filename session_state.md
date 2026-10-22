@@ -2,32 +2,33 @@
 
 Last updated: 2026-10-22
 Project: Team Request & Approval Portal
-Current milestone: M4 — tenant context and request creation/listing (not started)
-Implementation status: M0–M3 complete and verified
+Current milestone: M5 — review decisions and transactional audit (not started)
+Implementation status: M0–M4 complete and verified
 
 ## Completed
 
-- M0–M2: workspace, infra, schemas, shard routing, RLS, seed (details in plan.md and the Learning Guide). M2 merged into `main`.
-- M3 (branch `m3-auth`): login / logout / me / change-password API and pages; Redis sessions (express-session + connect-redis, cookie `trp.sid`); CSRF synchronizer token + exact Origin on all unsafe requests; Argon2id via @trp/database; generic login failures with equal hash work; shared Redis limits (account, IP, anonymous session creation, password change); sessionVersion revocation; mustChangePassword gating; idle 30 min / absolute 8 h; fail-closed 503 on Redis errors; `{ code, message, requestId }` errors and `Cache-Control: no-store`; zod schemas in @trp/contracts with `StandardSchemaValidationPipe` (ADR-015); Playwright E2E.
+- M0–M3: workspace, infra, schemas, shard routing, RLS, seed, secure sessions (details in plan.md and the Learning Guide). M3 merged into `main` 2026-10-22 after a fresh-clone check (install, verify, build, 16+28 integration, db:verify, 3 E2E against the clone's own servers).
+- M4 (branch `m4-requests`): tenant context from the guard's membership + directory query; `TenantDbService.run` (withTenant + 503 on shard outage); `POST /requests` (request + REQUEST_CREATED audit in one shard transaction), `GET /requests` (scope/status/category, signed keyset cursor), `GET /requests/:id` (404 outside scope), `GET /dashboard` (counts per scope); batched display names from control; strict zod schemas for body, query and params; pages: requests list with filters + Load more, new request, detail, dashboard tiles (ADR-016).
 - Git: `main` tracks `origin` (https://github.com/tnvi55/team-request-portal.git). Identity `Tanvi <tanvi.jain@fiftyfivetech.io>`.
 
 ## Verified commands and results (2026-10-22)
 
 | Command | Result |
 | --- | --- |
-| `pnpm --filter @trp/api test:integration` | 28/28 (4 health + 24 auth) against *_test Postgres and real Redis; 4 consecutive green runs |
-| First run of that suite | 24/28: shared app hit its own 5-per-account login limit; expiry tests flaky because cookie Expires has 1-second precision. Fixed in the tests (own limits per instance; longer test timeouts; replay the cookie by hand so the server is what rejects it) |
-| Mutation: remove `regenerateSession` | fixation test failed as expected; restored |
-| `pnpm test:e2e` (with `pnpm dev`) | 3/3: redirect when signed out, generic wrong-password error, sign in -> dashboard -> sign out; cookie HttpOnly + SameSite=Lax, invisible to `document.cookie` |
-| `pnpm verify` | format, lint, typecheck (incl. e2e) clean; unit 9 API + 9 database |
-| `pnpm build`, `pnpm test:integration` | ok; 16/16 database + 28/28 API |
-| `pnpm demo:up` + curl through :8080 | one login; `/auth/me` 200 alternating api-1/api-2; still 200 via api-2 after stopping api-1 |
+| `pnpm --filter @trp/api test:integration` | 48/48 (4 health, 24 auth, 20 requests) on *_test databases |
+| Mutation: drop ownership filter in detail | coworker test failed as expected; restored |
+| Mutation: drop app-level tenantId filters | all 20 request tests still passed: RLS alone kept Atlas out of Cedar (defence in depth); restored |
+| Audit fault: owner revokes INSERT on request_audit_events for trp_runtime | POST /requests -> 500 generic body, request count unchanged (rollback); grant restored |
+| Shard B unreachable (bad URL) | Birch -> 503, Atlas still 200 on the same instance |
+| `pnpm test:e2e` (with `pnpm dev`) | 4/4: auth flow + submit -> coworker 404 -> manager company view |
+| `pnpm verify` | clean; unit 16 API + 9 database |
+| `pnpm build`, `pnpm test:integration`, `pnpm db:verify` | ok; 16/16 database + 48/48 API; all checks passed |
+| `pnpm demo:up` + script through :8080 | login 200; create 201 on api-1; detail 200 alternating api-2/api-1, same request; dashboard 200 |
 
 ## Not run / known gaps
 
-- Spoofing X-Forwarded-For directly against 127.0.0.1:3001 is possible for local processes (trust proxy includes loopback); through Nginx the header is overwritten. Documented in ADR-015.
-- Argon2 parameters not benchmarked yet (OWASP baseline in use).
-- ESLint 9 unsupported upstream (follow-up in ADR-010). Readiness does not check migrations (M7).
+- Dev data now also contains requests created by E2E and the replica check (synthetic, harmless).
+- Carried over: X-Forwarded-For spoofable only by local processes calling 127.0.0.1:3001 directly; Argon2 not benchmarked; ESLint 9 unsupported upstream; readiness does not check migrations (M7).
 
 ## Blockers
 
@@ -35,11 +36,11 @@ None.
 
 ## Learning Guide
 
-Long-form guide for the learner (Claude Doc): https://claude.ai/artifact/7aignW34LB1LeGeG37aFYS. Covers M0–M3. Update it after each milestone.
+Long-form guide for the learner (Claude Doc): https://claude.ai/artifact/7aignW34LB1LeGeG37aFYS. Covers M0–M4. Update it after each milestone.
 
 ## Next task
 
-M4 from plan.md: tenant context from the current membership + directory on every protected request; tenant-scoped transactions with the runtime role; create/list/detail requests and a tenant-scoped dashboard (UI + API); request + creation audit atomically; signed cursor pagination with status/category filters; employees see only their own requests; Atlas vs Cedar vs Birch negative tests.
+M5 from plan.md: approve/reject UI and API; one transaction for pending + version check, conditional update, and decision audit; reject self-review and invalid transitions; ADMIN request-audit page; concurrency test (one success, one 409, one event), audit-failure rollback, and runtime-role UPDATE/DELETE denial on audit.
 
 ## Handoff discipline
 

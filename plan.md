@@ -203,13 +203,15 @@ Learn: password hashing, cookie sessions vs JWT, session fixation, CSRF. Exercis
 
 ### M4 — tenant context and request creation/listing
 
-- [ ] Resolve current membership and directory mapping on every protected request.
-- [ ] Build tenant-aware database execution and RLS context with the runtime DB role.
-- [ ] Implement create/list/detail and tenant-scoped dashboard UI/API.
-- [ ] Create request + creation audit event atomically on the selected shard.
-- [ ] Implement bounded cursor pagination and validated status/category filters.
-- [ ] Map employee access to own records; reviewers can view company records.
-- [ ] Do not allow the browser to choose a shard or bypass membership via a tenant field.
+- [x] Resolve current membership and directory mapping on every protected request.
+- [x] Build tenant-aware database execution and RLS context with the runtime DB role.
+- [x] Implement create/list/detail and tenant-scoped dashboard UI/API.
+- [x] Create request + creation audit event atomically on the selected shard.
+- [x] Implement bounded cursor pagination and validated status/category filters.
+- [x] Map employee access to own records; reviewers can view company records.
+- [x] Do not allow the browser to choose a shard or bypass membership via a tenant field.
+
+Status: gate passed 2026-10-22 (20 request integration tests + 25 unit tests; Playwright journey: submit, coworker 404, manager company view; replica demo create/read across api-1 and api-2).
 
 Gate: end-to-end user can submit and read a request. An employee cannot read a coworker's record; Atlas cannot read Cedar even though both share shard A; Atlas cannot read Birch on shard B. Guessed IDs and altered query/body fields fail safely.
 

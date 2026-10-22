@@ -145,6 +145,17 @@ Status: selected in M3.
 - **Client IP:** Express `trust proxy = loopback, uniquelocal`; Nginx overwrites X-Forwarded-For. A process on the API host could still spoof it (the API binds 127.0.0.1 in development).
 Consequence: one extra control-database read per protected request, and Redis is required for any signed-in activity.
 
+## ADR-016 — Tenant context, visibility, and pagination
+
+Status: selected in M4.
+- **Tenant context** = organization id, user id, role, shard key, built only from the membership the auth guard just loaded. The directory entry is fetched in that same control query (no extra round trip). No route accepts a tenant, shard, or owner parameter; strict schemas reject them.
+- **One door to tenant data:** `TenantDbService.run(ctx, work)` = `withTenant` on the caller's shard + mapping connection failures to 503. Queries still filter `tenant_id` explicitly; RLS is the second line (a test removed the app filter and isolation held).
+- **Visibility:** employees see only their own requests (list, detail, dashboard). Managers/admins see the company, and may switch to "mine". An employee asking for `scope=company` gets 403 (they asked for something their role cannot have); a record outside scope gets 404 (do not confirm it exists).
+- **Pagination:** keyset on (createdAt desc, id desc), page size 20 (max 100), one extra row decides `hasMore`, no total counts. Cursor = base64url JSON + HMAC-SHA256 with CURSOR_SECRET, bound to endpoint, tenant, scope (incl. user for "mine"), and filters; any mismatch is 400.
+- **Display names** for user ids on tenant rows: one batched control query per page, restricted to the caller's organization.
+- **Availability:** a missing directory entry or an unreachable shard is 503 for that company only; other companies keep working (tested with shard B down).
+Consequence: tenant data requires a healthy control database (for the guard) and the company's own shard.
+
 ## Deferred questions / parking lot
 
 | ID | Question | Treatment |
