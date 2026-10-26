@@ -78,7 +78,7 @@ Rule: stable releases only, at least 7 days old (enforced by `minimumReleaseAge`
 | Node.js | 24.x, `engines >=24.15 <25`; images `node:24.21.0-alpine` | Plan baseline. Maintenance LTS since 2026-10-20, supported to 2028-04-30. Nest CLI needs ≥24.15. Node 26 becomes LTS 2026-10-28: revisit after M8, not mid-project |
 | pnpm | 12.13.0 (`packageManager`) | Newest release older than 7 days. Installed with npm because Corepack is no longer bundled from Node 25 |
 | TypeScript | 6.0.3 | 7.0 is out, but typescript-eslint supports `<6.1` and Nest CLI bundles `~6.0.2` |
-| Next.js / React | 16.4.0 / 19.3.0 | Current stable App Router; React 19 satisfies Next's peer range |
+| Next.js / React | 16.4.2 / 19.3.0 (16.4.0 until 2026-10-26, see ADR-013) | Current stable App Router; React 19 satisfies Next's peer range |
 | NestJS | 12.1.3 (core/common/platform-express/testing), CLI 12.0.8 | Current major. ESM-only packages, so the API is an ESM project (`nodenext`) |
 | ESLint | 9.39.5, typescript-eslint 8.71.2, eslint-config-next 16.4.0 | ESLint 10 exists, but Next's bundled react/import/jsx-a11y plugins declare peers only up to ESLint 9 |
 | Prettier | 3.9.10 | Formatter for code; Markdown docs excluded to keep authored tables intact |
@@ -92,7 +92,7 @@ Rule: stable releases only, at least 7 days old (enforced by `minimumReleaseAge`
 | gitleaks | `zricethezav/gitleaks:v8.30.1` | Local secret scan; no hosted service |
 
 Planned for later milestones (versions re-checked when installed, same 7-day rule):
-- M2 (installed): Prisma ORM **7.10.0** (`prisma`, `@prisma/client`, `@prisma/adapter-pg`). 7.10.1 was blocked by the 7-day rule (published 2026-10-15). npm's `latest` tag points to 8.0.0-rc.23, a release candidate; 7.x is pinned explicitly.
+- M2 (installed): Prisma ORM **7.10.0**, upgraded to **7.10.1** on 2026-10-26 for dependency advisories (see ADR-013) (`prisma`, `@prisma/client`, `@prisma/adapter-pg`). 7.10.1 was blocked by the 7-day rule (published 2026-10-15). npm's `latest` tag points to 8.0.0-rc.23, a release candidate; 7.x is pinned explicitly.
 - M2 (installed): **@node-rs/argon2 2.2.2** for Argon2id instead of `argon2`: maintained, defaults to Argon2id, prebuilt binaries with no install script (fits `allowBuilds`). Parameters: 19 MiB, t=2, p=1 (`packages/database/src/passwords.ts`).
 - M3 (installed): express-session 1.19.0 + connect-redis 10.0.0 (Redis session store), @playwright/test 1.64.1 (Chromium only), zod schemas in @trp/contracts validated by Nest's `StandardSchemaValidationPipe` (ADR-015) instead of the planned class-validator/class-transformer.
 - M7: nestjs-pino 5.x / pino-http for structured logs with request IDs.
@@ -121,6 +121,8 @@ Status: selected in M1.
 pnpm `minimumReleaseAge: 10080` (7 days), `allowBuilds` allowlist for install scripts, exact versions, committed lockfile, exact image tags, local gitleaks scan.
 Reason: compromised packages are typically discovered within days of publication; install scripts are the usual execution path.
 Consequence: brand-new patch releases are adopted a week late. An urgent security fix can be added to `minimumReleaseAgeExclude` with a note.
+
+Applied 2026-10-26: the M4 pre-merge check found `next build` refusing to finish (Next.js security gate). `pnpm audit`: next 16.4.0 (2 critical RCE, 1 high DoS; patched 16.4.1+), body-parser 2.3.0 and multer 2.4.0 (high DoS, via @nestjs/platform-express), deepmerge-ts and mysql2 (via the Prisma CLI), fast-uri (via the Nest CLI). Fixed: next and eslint-config-next 16.4.2, Prisma 7.10.1 (brings patched mysql2 and deepmerge-ts), and pnpm `overrides` body-parser 2.4.0 + multer 2.5.0 with a temporary `minimumReleaseAgeExclude` (both published 2026-10-22; remove the exclusion after 2026-10-29). Result: `pnpm audit --prod` reports no known vulnerabilities. Deferred: fast-uri 3.1.9 (dev tooling only, moderate/low) until it passes the 7-day rule. Exposure note: the app uses neither next/image with SVG, `use cache`, Server Actions, nor file uploads.
 
 ## ADR-014 — Migration workflow, database roles, and test databases
 

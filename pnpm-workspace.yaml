@@ -16,3 +16,14 @@ allowBuilds:
 
 # Write exact versions to package.json (the lockfile pins transitive ones).
 saveExact: true
+
+# Security fixes (2026-10-26, see ADR-013). body-parser 2.4.0 and multer 2.5.0 patch high-severity
+# advisories (GHSA-27r3-jxmh-p828, GHSA-q7qp-rjg7-q26m) but were published 2026-10-22, inside the
+# 7-day window; Nest still pins multer 2.4.0. Remove these two exclusions after 2026-10-29.
+minimumReleaseAgeExclude:
+  - body-parser
+  - multer
+
+overrides:
+  body-parser: 2.4.0
+  multer: 2.5.0
