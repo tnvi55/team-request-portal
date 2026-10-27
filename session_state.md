@@ -8,7 +8,7 @@ Implementation status: M0–M7 complete and verified
 ## Completed
 
 - M0–M6: workspace, infra, schemas, shard routing, RLS, seed, secure sessions, tenant-scoped requests, atomic decisions and request audit, company user administration with the last-admin lock (details in plan.md and the Learning Guide). M6 merged into `main` 2026-10-27.
-- M7 (branch `m7-cache`, ADR-019):
+- M7 (merged into `main` 2026-10-27 after a fresh-clone check, ADR-019):
   - Dashboard cache in Redis (`trp:cache:v1:dashboard:<tenant>:company` / `...:mine:<user>`, 5 s TTL, role checked before the cache, invalidated after create/decide commits, fail open to the DB, `X-Dashboard-Cache` header).
   - Shared per-user API limit (third global guard, `rl:api:<tenant>:<user>`, 120/min, 429 + Retry-After, fail closed).
   - Readiness also checks migrations: names baked in at build by `packages/database/prisma/list-migrations.mjs`; new migration `20261027120000_runtime_reads_migration_history` (runtime SELECT on `_prisma_migrations`, checked by `db:verify`).
@@ -27,6 +27,7 @@ Implementation status: M0–M7 complete and verified
 | `pnpm verify` | clean; unit 17 API + 9 database |
 | `pnpm test:integration` | 16/16 database + 86/86 API (6 files) |
 | `pnpm demo:up` + `pnpm test:e2e` | 6/6 against production images |
+| Fresh clone of m7-cache from GitHub | install, verify (9 + 17 unit), build, `audit --prod` clean, integration 16/16 + 86/86, migrate, seed, db:verify, `demo:up` + E2E 6/6 on the clone's production images: all pass |
 | `pnpm demo:up` + M7 replica script | readiness incl. `migrations: up`; dashboard miss on api-2 then hits on api-1/api-2; create via api-1 -> next dashboard miss on api-2 with new total; 429 on the 121st counted call (63 on api-1, 62 on api-2), Retry-After 58; other user still 200 |
 
 ## Not run / known gaps
