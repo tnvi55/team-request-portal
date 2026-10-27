@@ -1,16 +1,12 @@
 'use client';
 
 import { ChangePasswordRequestSchema, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@trp/contracts';
-import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { AppHeader } from '../../components/app-header';
 import { RequireAuth } from '../../components/require-auth';
 import { api, describeError } from '../../lib/api';
-import { useAuth } from '../../lib/auth-context';
 
 function ChangePasswordForm({ mustChange }: { mustChange: boolean }) {
-  const { signedOut } = useAuth();
-  const router = useRouter();
   const [currentPassword, setCurrent] = useState('');
   const [newPassword, setNew] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -34,9 +30,10 @@ function ChangePasswordForm({ mustChange }: { mustChange: boolean }) {
     setError(null);
     try {
       await api('/auth/change-password', { method: 'POST', body: parsed.data });
-      // The server ended every session of this account, including this one.
-      signedOut();
-      router.replace('/login?changed=1');
+      // The server ended every session of this account, including this one. A full page load
+      // drops all in-memory state; a client-side redirect raced RequireAuth's own redirect to
+      // /login and lost the "changed" notice.
+      window.location.replace('/login?changed=1');
     } catch (err) {
       setError(describeError(err));
       setPending(false);
