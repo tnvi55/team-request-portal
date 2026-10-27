@@ -193,6 +193,16 @@ Status: selected in M7.
 - **Shutdown:** unchanged from M1/M2: `enableShutdownHooks` closes the HTTP server, Prisma pools and Redis on SIGTERM.
 Consequence: dashboard numbers can lag by up to 5 seconds in races; a Redis outage logs users out and returns 503 for protected work, while the dashboard alone would have survived.
 
+## ADR-020 — Replica evidence and the demo check
+
+Status: selected in M8.
+- **Same artifact everywhere:** `demo:up` builds `trp-api:local` and `trp-web:local` once; api-2 and web-2 run the very same images (`pull_policy: never`). Both web copies therefore serve identical hashed asset names, which `demo:verify` compares.
+- **No Next.js instance key:** the app has no Server Actions and no shared Next.js data cache (private data is fetched by the browser from `/api/v1`; pages are `no-store`), so nothing needs `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` or a shared cache handler. Adding Server Actions later would require one shared key in both web containers.
+- **`pnpm demo:verify` is non-destructive:** HTTP checks through the proxy (readiness incl. migrations, both API and web replicas, one session on both API replicas, CSRF and Origin refusals, a tenant field refused, a cache hit, employee scope, the shared 120/min limit), then the read-only `db:verify`. It creates nothing; it signs in two Cedar accounts once each and leaves the employee throttled for up to a minute.
+- **Failure behaviour is shown, not automated:** stopping and starting containers stays a manual step (README "Replica demo", docs/demo.md section 7), because a verification command should not change the running system.
+- **Shutdown evidence:** `DatabaseService` logs `Database pools closed (SIGTERM)` from its shutdown hook. Exit code 143 after `docker stop` is Nest re-raising SIGTERM after the hooks ran, well within the 15 s grace period (a forced kill would be 137). Successful health probes are not request-logged, so the container log stays readable.
+Consequence: the demo proves horizontal scaling of stateless processes on one machine; the stateful stores (Postgres, Redis) remain single instances.
+
 ## Deferred questions / parking lot
 
 | ID | Question | Treatment |

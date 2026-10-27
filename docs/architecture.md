@@ -315,6 +315,8 @@ For replica demo:
 - A stopped instance may cause a transient failure before proxy detection. Document recovery instead of promising zero downtime.
 - Fail closed if the required identity database, session store, or selected shard is unavailable. Never route a company's writes to another shard as recovery.
 
+Verified in M8 (ADR-020): one image per app, so both web copies serve identical asset names; no Next.js instance key is needed (no Server Actions, no shared data cache); `pnpm demo:verify` checks both replicas, one session on both, and the shared limit; stopping api-1 or web-1 kept the app working through the other copy.
+
 ## 11. Tests, observability, and operational limits
 
 Run API integration tests against real test PostgreSQL/Redis, including runtime-role RLS. Use isolated database names/Compose project and key prefixes; never point tests at demo data by accident. Unit tests cover pure rules and cursor validation; browser E2E covers role journeys.

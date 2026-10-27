@@ -92,7 +92,7 @@ Deliver small working milestones; do not generate the entire application at once
 - Verified in M1 (root package.json): local:setup, infra:up/down/ps, dev, build, lint, typecheck, format/format:check, test:unit, test:integration (needs infra:up), verify, secrets:scan, demo:up/down.
 - Verified in M2: db:generate, db:migrate:all, db:seed, db:verify. Database integration tests use isolated *_test databases (`pnpm --filter @trp/database test:integration` prepares them).
 - Verified in M3: test:e2e (Playwright, Chromium; needs infra up, migrated + seeded dev data, and `pnpm dev` or `pnpm demo:up` serving :8080).
-- Not yet implemented: demo:verify (M8). See the command table in plan.md.
+- Verified in M8: demo:verify (needs `pnpm demo:up`; non-destructive; signs in two Cedar accounts once each and runs db:verify). See the command table in plan.md.
 - API request bodies, query strings, and path params: zod schemas in @trp/contracts via `@Body/@Query/@Param({ schema })`; missing schemas fail at runtime by design.
 - Tenant data only through `TenantDbService.run(tenantContextOf(principal), tx => ...)`; keep the explicit tenantId filter in every query.
 - New migrations: follow ADR-014 (migrate diff, never migrate dev or db push); every new table needs explicit trp_runtime grants.

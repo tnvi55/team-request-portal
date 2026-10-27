@@ -100,7 +100,8 @@ Where: [rate-limit.service.ts](../apps/api/src/redis/rate-limit.service.ts); log
 
 ## Scaling and operations
 
-**Stateless processes.** The web and API processes keep nothing per-user in memory between requests. Any copy can serve any request, so you can run two and stop one. The *state* still exists, in Postgres and Redis; stateless does not mean the whole system is stateless. Not built yet (M8).
+**Stateless processes.** The web and API processes keep nothing per-user in memory between requests. Any copy can serve any request, so you can run two and stop one. The *state* still exists, in Postgres and Redis; stateless does not mean the whole system is stateless.
+Where: `pnpm demo:up` runs api-1/api-2 and web-1/web-2 from one image each. In M8, `docker stop trp-api-1-1` left every call answered by api-2 with the same session, and after a restart api-1 served that session again. Try it: the exercise is in the README "Replica demo" section.
 
 **Cache, TTL, eventual consistency.** Dashboard counts are cached for 5 seconds. After a request is created or decided, the cache entry is deleted, but in rare races a count may be up to 5 seconds stale. That is acceptable for counts, never for permissions or request status.
 Where: [dashboard-cache.service.ts](../apps/api/src/requests/dashboard-cache.service.ts); keys look like `trp:cache:v1:dashboard:<company>:company` or `...:mine:<user>`. Try: open the dashboard twice and look at the `X-Dashboard-Cache` response header in the browser's network tab (miss, then hit).

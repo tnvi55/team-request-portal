@@ -264,17 +264,19 @@ Learn: cache keys and scope, TTL, eventual consistency, fail-open vs fail-closed
 
 ### M8 — replica evidence, final verification, and Git handoff
 
-- [ ] Run production builds of two web and two API instances behind the local reverse proxy.
-- [ ] Share build artifacts/configuration and required Next.js instance keys; no private persistent web cache.
-- [ ] Demonstrate one session across API replicas and shared rate limits across replicas.
-- [ ] Stop one API instance and demonstrate authenticated requests through the surviving instance.
-- [ ] Show public web pages can be served by either web instance and tenant data remains correct.
-- [ ] Run lint, typecheck, unit tests, integration tests, browser E2E, and production build.
-- [ ] Rehearse docs/demo.md, including shard evidence and failure-path behavior.
-- [ ] Complete README setup/troubleshooting and architecture diagrams.
-- [ ] Run the local secret scan over the full Git history and confirm no credentials, .env files, or generated demo passwords are tracked.
+- [x] Run production builds of two web and two API instances behind the local reverse proxy.
+- [x] Share build artifacts/configuration and required Next.js instance keys; no private persistent web cache.
+- [x] Demonstrate one session across API replicas and shared rate limits across replicas.
+- [x] Stop one API instance and demonstrate authenticated requests through the surviving instance.
+- [x] Show public web pages can be served by either web instance and tenant data remains correct.
+- [x] Run lint, typecheck, unit tests, integration tests, browser E2E, and production build.
+- [x] Rehearse docs/demo.md, including shard evidence and failure-path behavior.
+- [x] Complete README setup/troubleshooting and architecture diagrams.
+- [x] Run the local secret scan over the full Git history and confirm no credentials, .env files, or generated demo passwords are tracked.
 - [ ] Review git diff and staged files, commit logical changes, and push the user-selected branch/remote under the user's normal workflow.
-- [ ] Record known limitations honestly and update this checklist and session_state.md.
+- [x] Record known limitations honestly and update this checklist and session_state.md.
+
+Status: evidence 2026-10-27 (`pnpm demo:verify` all checks passed on the rebuilt replicas: readiness incl. migrations, both API and web replicas with identical builds, one session on api-1 and api-2, CSRF/Origin refusals, tenant field rejected, cache hit, employee scope, 116 + 4 = 120 calls across both replicas then 429, `db:verify`; failover script: api-1 stopped -> all calls 200 on api-2, restarted api-1 serves the same session, web-1 stopped -> pages from web-2; `docker stop` 0.7 s with `Database pools closed (SIGTERM)`; `pnpm verify`, 16 + 86 integration, 6/6 E2E on the replicas, `pnpm build`; full-history secret scan over 28 commits clean and no `.env`/credential files tracked). The walkthrough was rehearsed with these commands and scripts, not yet presented live to the mentor.
 
 Gate: another developer can reproduce setup and the documented demo from a clean checkout. All required tests pass against real local Postgres/Redis; report any unrun checks instead of claiming completion.
 
@@ -318,7 +320,7 @@ Commands marked M1 exist in the root package.json and were run in M1. The others
 | pnpm test:unit / pnpm test:integration / pnpm test:e2e | Meaningful test layers with isolated test data | M1; test:e2e M3 (needs the app running at :8080) |
 | pnpm build | Build web and API | M1 |
 | pnpm demo:up / pnpm demo:down | Start/stop the production-build replica demo | M1 |
-| pnpm demo:verify | Run non-destructive checks for the mentor demo | M8 |
+| pnpm demo:verify | Run non-destructive checks for the mentor demo (needs `pnpm demo:up`) | M8 |
 
 Do not add a default command that deletes Docker volumes. Destructive resets, if ever needed, require an explicitly named command and a local-target guard.
 

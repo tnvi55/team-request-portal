@@ -2,7 +2,22 @@
 
 A local multi-tenant SaaS learning project: employees submit equipment/software requests, reviewers approve or reject, and organization admins manage accounts.
 
-**Current status: M7 complete (caching and operations).** Sign in at http://localhost:8080, submit requests, browse them with filters and paging, and see dashboard counts (cached in Redis for up to 5 seconds per company and person). Managers and admins approve or reject other people's requests (a rejection needs a comment); admins see the company audit history under Audit and manage accounts under Users (create with a temporary password, change roles, enable/disable; the last active admin is protected). Each signed-in person may make 120 API calls per minute across all API copies. M8 (final replica evidence and handoff) is next. Progress lives in [plan.md](plan.md) and [session_state.md](session_state.md).
+**Current status: MVP complete (M0–M8).** Sign in at http://localhost:8080, submit requests, browse them with filters and paging, and see dashboard counts (cached in Redis for up to 5 seconds per company and person). Managers and admins approve or reject other people's requests (a rejection needs a comment); admins see the company audit history under Audit and manage accounts under Users (create with a temporary password, change roles, enable/disable; the last active admin is protected). Each signed-in person may make 120 API calls per minute across all API copies. The production build runs as two web and two API copies behind one proxy, and `pnpm demo:verify` checks it. Progress and evidence live in [plan.md](plan.md), [session_state.md](session_state.md), and [docs/demo.md](docs/demo.md).
+
+## How it fits together
+
+```mermaid
+flowchart LR
+  Browser["Browser<br/>localhost:8080"] --> Proxy["Nginx proxy"]
+  Proxy -->|pages| Web["Next.js<br/>web-1, web-2"]
+  Proxy -->|/api/v1| API["NestJS API<br/>api-1, api-2"]
+  API --> Control[("Control DB<br/>users, memberships,<br/>shard directory")]
+  API --> ShardA[("Shard A<br/>Atlas, Cedar")]
+  API --> ShardB[("Shard B<br/>Birch")]
+  API --> Redis[("Redis<br/>sessions, limits,<br/>dashboard cache")]
+```
+
+The app processes keep nothing per user in memory: any copy can serve any request, because sessions, limits and the cache are in Redis and all data is in Postgres. Each company's requests live on exactly one shard, chosen through the directory in the control database; row-level security inside each shard keeps companies that share a shard apart. Details: [docs/architecture.md](docs/architecture.md).
 
 ## Selected stack and requirements
 
@@ -55,7 +70,7 @@ pnpm db:verify        # read-only checks: shard histories, RLS, roles, data plac
 pnpm dev              # Next.js on 127.0.0.1:3000 + NestJS on 127.0.0.1:3001
 ~~~
 
-Open http://localhost:8080. The page shows API readiness for the control database, both shards, and Redis. Always use port 8080 (the proxy), not 3000/3001, so pages and `/api/v1` share one origin.
+Open http://localhost:8080. The status page shows API readiness for the control database, both shards, Redis, and migrations. Always use port 8080 (the proxy), not 3000/3001, so pages and `/api/v1` share one origin.
 
 Daily commands:
 
@@ -71,10 +86,24 @@ Daily commands:
 | `pnpm test:e2e` | Browser tests (Playwright/Chromium) against the running app on :8080; first time: `pnpm exec playwright install chromium` |
 | `pnpm build` | Production build of contracts, API, and web |
 | `pnpm demo:up` / `pnpm demo:down` | Production images: 2x API + 2x web behind the proxy, and back to dev mode |
+| `pnpm demo:verify` | Non-destructive checks of the running replica demo, then `db:verify` (see below) |
 | `pnpm secrets:scan` | Scan Git history for committed secrets (local gitleaks container) |
 | `pnpm format` | Apply Prettier formatting |
 
-Not yet available: `demo:verify` (M8).
+### Replica demo (production build)
+
+Stop `pnpm dev` first (Ctrl+C), then:
+
+~~~powershell
+pnpm demo:up       # builds the images, starts api-1, api-2, web-1, web-2, switches the proxy
+pnpm demo:verify   # readiness, both replicas, one session on both, CSRF/origin, cache, scope, shared limit, db:verify
+pnpm test:e2e      # the browser tests also run against the replicas
+pnpm demo:down     # back to dev mode (data volumes are kept)
+~~~
+
+In demo mode every API response carries `X-Instance-ID: api-1|api-2` and Nginx adds `X-Upstream` (which container answered). `demo:verify` signs in `manager@cedar.example` and `employee@cedar.example` once each and ends by using up the employee's 120 calls for the current minute, so run it at most twice in 15 minutes.
+
+To watch a replica fail and recover: `docker stop trp-api-1-1`, keep using the app (api-2 answers; the first request after the stop may fail once while the proxy notices), then `docker start trp-api-1-1`. The same session keeps working on both. The same works for `trp-web-1-1`.
 
 Demo accounts: `pnpm db:seed` writes random passwords for `admin|manager|employee|employee2@<atlas|cedar|birch>.example` to `.local/demo-credentials.json` (Git-ignored). Use them on the sign-in page. Five sign-in attempts on one account within 15 minutes (right or wrong) block further attempts until the window ends (Retry-After tells you how long). Each `pnpm test:e2e` run signs some accounts in several times, so wait 15 minutes between back-to-back runs.
 
@@ -98,7 +127,9 @@ All bound to 127.0.0.1, never to the network.
 - **`infra:up` says "run pnpm local:setup first"**: `.env` is missing values.
 - **Database roles**: `infra/postgres/init/01-roles.sh` runs only when a volume is first created. Changing passwords in `.env` afterwards does not change existing roles.
 - **`The system cannot find the path specified (os error 3)` from pnpm**: the checkout path is too deep for Windows' 260-character limit. Clone to a short path such as `C:\dev\team-request-portal`, or enable Windows long paths.
-- **readiness 503**: the JSON names the failing dependency; check `pnpm infra:ps`.
+- **readiness 503**: the JSON names the failing dependency; check `pnpm infra:ps`. `migrations: down` means a database lacks a committed migration: run `pnpm db:migrate:all`.
+- **429 Too many attempts / requests**: the login limit is 5 per account per 15 minutes; the API limit is 120 calls per person per minute. Wait for `Retry-After`, or use another demo account.
+- **Browser tests flaky against `pnpm dev`**: the dev server compiles pages on demand and can stall. Run them against the production replicas (`pnpm demo:up`) for a reliable result.
 
 ## Local data and credentials
 
@@ -108,7 +139,12 @@ Normal stopping must retain database volumes. There is no default destructive re
 
 ## Known design limits
 
-One organization per account; fixed two-shard directory; no cross-shard transactions/joins or automatic rebalancing; short-lived dashboard staleness; one local machine without production high availability.
+- One organization per account; no invitations, public sign-up, or email.
+- A fixed two-shard directory: no automatic rebalancing, no cross-shard joins, and no distributed transactions (account audit lives in control, request audit in the company's shard).
+- Dashboard counts may lag by up to 5 seconds during races; request details and every permission check always read the database.
+- One local machine: Postgres and Redis are single instances without replication or backups. Losing Redis signs everyone out and returns 503 for protected work until it is back.
+- Stopping a replica can make one in-flight request fail before the proxy notices; there is no promise of zero downtime.
+- Not production-hardened: no TLS (plain HTTP is allowed only on localhost), Argon2 parameters are the OWASP baseline but not benchmarked on this machine, and local inspection ports are open on 127.0.0.1.
 
 The user-pool interpretation is recorded as assumption A-01 in plan.md for mentor review.
 
