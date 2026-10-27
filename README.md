@@ -2,7 +2,7 @@
 
 A local multi-tenant SaaS learning project: employees submit equipment/software requests, reviewers approve or reject, and organization admins manage accounts.
 
-**Current status: M6 complete (user administration).** Sign in at http://localhost:8080, submit requests, browse them with filters and paging, and see dashboard counts. Managers and admins approve or reject other people's requests (a rejection needs a comment); admins see the company audit history under Audit and manage accounts under Users (create with a temporary password, change roles, enable/disable; the last active admin is protected). Caching and operational checks arrive in M7. Progress lives in [plan.md](plan.md) and [session_state.md](session_state.md).
+**Current status: M7 complete (caching and operations).** Sign in at http://localhost:8080, submit requests, browse them with filters and paging, and see dashboard counts (cached in Redis for up to 5 seconds per company and person). Managers and admins approve or reject other people's requests (a rejection needs a comment); admins see the company audit history under Audit and manage accounts under Users (create with a temporary password, change roles, enable/disable; the last active admin is protected). Each signed-in person may make 120 API calls per minute across all API copies. M8 (final replica evidence and handoff) is next. Progress lives in [plan.md](plan.md) and [session_state.md](session_state.md).
 
 ## Selected stack and requirements
 
@@ -78,7 +78,7 @@ Not yet available: `demo:verify` (M8).
 
 Demo accounts: `pnpm db:seed` writes random passwords for `admin|manager|employee|employee2@<atlas|cedar|birch>.example` to `.local/demo-credentials.json` (Git-ignored). Use them on the sign-in page. Five sign-in attempts on one account within 15 minutes (right or wrong) block further attempts until the window ends (Retry-After tells you how long). Each `pnpm test:e2e` run signs some accounts in several times, so wait 15 minutes between back-to-back runs.
 
-Health endpoints: `GET /api/v1/health/live` (process alive) and `GET /api/v1/health/ready` (200 when all dependencies answer, otherwise 503 listing which one is down; no hostnames or errors exposed).
+Health endpoints: `GET /api/v1/health/live` (process alive) and `GET /api/v1/health/ready` (200 when all dependencies answer and every committed migration is applied, otherwise 503 listing which check failed; no hostnames or errors exposed). After pulling new migrations, run `pnpm db:migrate:all`, or readiness reports `migrations: down`.
 
 ### Local ports
 

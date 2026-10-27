@@ -249,12 +249,14 @@ Learn: row locks (pessimistic concurrency), authorization from current data. Exe
 
 ### M7 — dashboard caching and operational behavior
 
-- [ ] Cache company-wide counts for reviewers and own counts for employees under separate tenant/scope keys.
-- [ ] Use a short TTL (5 seconds initially) and invalidate after committed mutations.
-- [ ] Cache failure falls back to the database; log safe diagnostics.
-- [ ] Use shared authenticated API limits (120 requests per minute per user/tenant initially).
-- [ ] Use Redis noeviction and distinct key prefixes; session/limiter errors fail closed with an appropriate 503.
-- [ ] Include request IDs, safe instance markers in local demo mode, health checks, and DB pool cleanup.
+- [x] Cache company-wide counts for reviewers and own counts for employees under separate tenant/scope keys.
+- [x] Use a short TTL (5 seconds initially) and invalidate after committed mutations.
+- [x] Cache failure falls back to the database; log safe diagnostics.
+- [x] Use shared authenticated API limits (120 requests per minute per user/tenant initially).
+- [x] Use Redis noeviction and distinct key prefixes; session/limiter errors fail closed with an appropriate 503.
+- [x] Include request IDs, safe instance markers in local demo mode, health checks, and DB pool cleanup.
+
+Status: gate passed 2026-10-27 (9 integration tests in cache-and-limits.int-spec.ts: miss then hit, stale until a 2 s test TTL then fresh, invalidation after create and decide, separate keys per company and per person, role checked before the cache, DB fallback on a Redis WRONGTYPE error and on an unreadable value, one session and one 5/min counter shared by two app instances, demo-only X-Instance-ID, one structured log line per request without query string; mutation checks: no invalidation after create and no user id in the "mine" key each failed; readiness 503 when a migration is missing; db:verify confirms SELECT-only on _prisma_migrations; replica demo: cache filled by api-2 read by api-1, create on api-1 invalidated api-2, 429 on the 121st call split 63/62 across api-1/api-2; 6/6 E2E against production images).
 
 Gate: verify cache hits, scope isolation, expiry, and post-write invalidation. Count displays are eventually consistent with a five-second initial cache TTL; do not promise strict read-after-write consistency during races/failures. Request detail/status comes from the database. Security/authorization never comes from this cache.
 

@@ -284,6 +284,8 @@ Dashboard caching:
 - Request detail and mutation responses use authoritative database state.
 - A cache read/write failure falls back to scoped DB queries.
 
+Implemented in M7 (ADR-019): `apps/api/src/requests/dashboard-cache.service.ts` (keys, TTL, fail-open), invalidation in `RequestsService.create/decide`, `X-Dashboard-Cache` header; the per-user limit is `apps/api/src/auth/api-rate-limit.guard.ts`.
+
 Redis:
 - Prefix session, pre-auth/CSRF, rate, and cache keys distinctly.
 - Use bounded TTLs and noeviction so dashboard cache pressure cannot silently evict authentication/limit state.
@@ -319,7 +321,7 @@ Run API integration tests against real test PostgreSQL/Redis, including runtime-
 
 Log structured records containing requestId, route, status, duration, and safe instance ID. Include tenant/user/shard identifiers only where useful and appropriate; no private descriptions or secrets. Preserve the same requestId in error responses. Health endpoints expose status, not connection URLs.
 
-Readiness checks all required database connections and Redis; liveness checks process health independently. This demo can report unready if a shard is down; it does not promise per-tenant availability. On shutdown: stop accepting new work, allow bounded completion, close pools/Redis.
+Readiness checks all required database connections, Redis, and (since M7) that every committed migration is applied in control and both shards; liveness checks process health independently. This demo can report unready if a shard is down; it does not promise per-tenant availability. On shutdown: stop accepting new work, allow bounded completion, close pools/Redis.
 
 Storage lives in named PostgreSQL volumes. Stop commands do not remove them. Document backup/restore as a future operational step; sharding across one laptop is neither replication nor disaster recovery.
 

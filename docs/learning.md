@@ -102,6 +102,14 @@ Where: [rate-limit.service.ts](../apps/api/src/redis/rate-limit.service.ts); log
 
 **Stateless processes.** The web and API processes keep nothing per-user in memory between requests. Any copy can serve any request, so you can run two and stop one. The *state* still exists, in Postgres and Redis; stateless does not mean the whole system is stateless. Not built yet (M8).
 
-**Cache, TTL, eventual consistency.** Dashboard counts are cached for 5 seconds. After a decision, the cache entry is deleted, but in rare races a count may be up to 5 seconds stale. That is acceptable for counts, never for permissions or request status. Not built yet (M7).
+**Cache, TTL, eventual consistency.** Dashboard counts are cached for 5 seconds. After a request is created or decided, the cache entry is deleted, but in rare races a count may be up to 5 seconds stale. That is acceptable for counts, never for permissions or request status.
+Where: [dashboard-cache.service.ts](../apps/api/src/requests/dashboard-cache.service.ts); keys look like `trp:cache:v1:dashboard:<company>:company` or `...:mine:<user>`. Try: open the dashboard twice and look at the `X-Dashboard-Cache` response header in the browser's network tab (miss, then hit).
 
-**Fail closed vs fail open.** If the cache is down, fall back to the database (fail open is safe for counts). If the session store or rate limiter is down, refuse with 503 (fail closed), because guessing would let unauthenticated or unlimited traffic through. Not built yet (M7).
+**Cache keys and scope.** A cache is only safe if the key contains everything that changes the answer. Two people asking "my counts" must get two keys; two companies must never share one. The role check runs *before* the cache is read, so a cached company entry can never reach an employee.
+Where: the isolation and "role before cache" tests in [cache-and-limits.int-spec.ts](../apps/api/test/cache-and-limits.int-spec.ts). Leaving the user id out of the key made the isolation test fail.
+
+**Fail closed vs fail open.** If the cache is down, fall back to the database (fail open is safe for counts). If the session store or rate limiter is down, refuse with 503 (fail closed), because guessing would let unauthenticated or unlimited traffic through.
+Where: `DashboardCacheService` catches every Redis error and returns "no cache"; `RateLimitService` and the session middleware turn Redis errors into 503 (tests: "falls back to the database", and the M3 "fail closed when Redis is unavailable").
+
+**Shared rate limit.** Each signed-in person may make 120 API calls per minute. The counter lives in Redis, so two API copies share it: 60 calls on each copy is still 120. Over the limit the API answers 429 with `Retry-After`.
+Where: [api-rate-limit.guard.ts](../apps/api/src/auth/api-rate-limit.guard.ts).

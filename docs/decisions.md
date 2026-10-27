@@ -181,6 +181,18 @@ Status: selected in M6.
 - **Error code:** `LAST_ADMIN` (409) lets the UI explain the refusal. Admins may change their own role or status when another active admin remains.
 Consequence: admin writes of one company are serialized (fine at MVP scale); there is no control-audit viewer yet (only request audit is in scope).
 
+## ADR-019 — Dashboard cache, shared API limit, and operational signals
+
+Status: selected in M7.
+- **Cache-aside in Redis, 5 s TTL:** `trp:cache:v1:dashboard:<tenant>:company` and `...:<tenant>:mine:<user>`. The scope is authorized from the freshly loaded role before the key is built or read. A miss reads the database and stores the result with `SET ... EX`. `v1` lets a shape change ignore old entries.
+- **Invalidation after commit:** create and decide delete the company key and the submitter's own key after the shard transaction commits. A failed delete is logged and the TTL bounds staleness. Counts are eventually consistent; request detail and every authorization decision always come from the database.
+- **Fail open for the cache only:** any Redis error or unreadable value is treated as a miss (logged with the error class, no key contents). Sessions and limits keep failing closed with 503 (M3).
+- **Per-user API limit:** a third global guard after the session guard: `rl:api:<tenant>:<user>`, 120 per 60-second fixed window (`API_LIMIT_PER_MINUTE`), reusing the atomic `RateLimitService` (429 + `Retry-After`). Public routes have their own login/session limits. Integration tests raise the limit; the limit test lowers it to 5 and uses two app instances sharing one key prefix.
+- **Readiness includes migrations:** `prisma/list-migrations.mjs` (run by `generate`) bakes the committed migration names into `@trp/database`. Readiness reads `_prisma_migrations` in control and both shards and is unready if any expected migration is missing or any is failed or in progress. Migration `20261027120000_runtime_reads_migration_history` grants the runtime role `SELECT` only on that table (checked by `db:verify`).
+- **Observability:** one JSON log line per request (`requestId`, `instance`, `method`, path without query string, `status`, `durationMs`; `LOG_REQUESTS`). `X-Instance-ID` only when `EXPOSE_INSTANCE_ID=true`, which only the demo replicas set. `X-Dashboard-Cache: hit|miss` is evidence for tests and the demo.
+- **Shutdown:** unchanged from M1/M2: `enableShutdownHooks` closes the HTTP server, Prisma pools and Redis on SIGTERM.
+Consequence: dashboard numbers can lag by up to 5 seconds in races; a Redis outage logs users out and returns 503 for protected work, while the dashboard alone would have survived.
+
 ## Deferred questions / parking lot
 
 | ID | Question | Treatment |
