@@ -57,6 +57,16 @@ describe('parseEnv', () => {
     expect(config.LIMIT_WINDOW_SECONDS).toBe(900);
   });
 
+  it('applies the M7 cache, API limit, and observability defaults', () => {
+    const config = parseEnv(validEnv);
+    expect(config.DASHBOARD_CACHE_TTL_SECONDS).toBe(5);
+    expect(config.API_LIMIT_PER_MINUTE).toBe(120);
+    expect(config.EXPOSE_INSTANCE_ID).toBe(false); // demo-only header is off unless asked for
+    expect(config.LOG_REQUESTS).toBe(true);
+    expect(parseEnv({ ...validEnv, EXPOSE_INSTANCE_ID: 'true' }).EXPOSE_INSTANCE_ID).toBe(true);
+    expect(() => parseEnv({ ...validEnv, EXPOSE_INSTANCE_ID: 'yes' })).toThrow(/EXPOSE_INSTANCE_ID/);
+  });
+
   it('rejects an idle timeout longer than the absolute lifetime', () => {
     expect(() =>
       parseEnv({ ...validEnv, SESSION_IDLE_SECONDS: '600', SESSION_ABSOLUTE_SECONDS: '300' }),

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, Req, Res } from '@nestjs/common';
 import {
   CreateRequestSchema,
   DashboardQuerySchema,
@@ -14,7 +14,7 @@ import {
   type RequestDetail,
   type RequestSummary,
 } from '@trp/contracts';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { CurrentPrincipal } from '../auth/decorators.js';
 import type { Principal } from '../common/request-context.js';
 import { tenantContextOf } from '../tenant/tenant-context.js';
@@ -66,11 +66,15 @@ export class RequestsController {
     return this.requests.decide(tenantContextOf(principal), id, body, req.requestId);
   }
 
+  /** X-Dashboard-Cache tells whether the counts came from Redis (hit) or the database (miss). */
   @Get('dashboard')
-  dashboard(
+  async dashboard(
     @CurrentPrincipal() principal: Principal,
+    @Res({ passthrough: true }) res: Response,
     @Query({ schema: DashboardQuerySchema }) query: DashboardQuery,
   ): Promise<DashboardResponse> {
-    return this.requests.dashboard(tenantContextOf(principal), query.scope);
+    const { body, cache } = await this.requests.dashboard(tenantContextOf(principal), query.scope);
+    res.setHeader('X-Dashboard-Cache', cache);
+    return body;
   }
 }

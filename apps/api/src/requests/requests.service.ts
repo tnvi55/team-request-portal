@@ -15,6 +15,7 @@ import { ApiException } from '../common/errors.js';
 import { APP_CONFIG, type AppConfig } from '../config/env.js';
 import { isReviewer, requireRole, type TenantContext } from '../tenant/tenant-context.js';
 import { TenantDbService } from '../tenant/tenant-db.service.js';
+import { DashboardCacheService } from './dashboard-cache.service.js';
 import { PeopleService } from './people.service.js';
 
 /** The tenant row shape the service maps from (only the fields it reads). */
@@ -39,6 +40,7 @@ export class RequestsService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly tenantDb: TenantDbService,
     private readonly people: PeopleService,
+    private readonly dashboardCache: DashboardCacheService,
   ) {}
 
   /** Request + REQUEST_CREATED audit event in ONE shard transaction: both commit or neither. */
@@ -65,6 +67,8 @@ export class RequestsService {
       });
       return created;
     });
+    // After COMMIT: the counts that include this request are now out of date.
+    await this.dashboardCache.invalidate(ctx.tenantId, row.createdByUserId);
     return this.toDetail(ctx, row);
   }
 
@@ -202,11 +206,29 @@ export class RequestsService {
       });
       return decided;
     });
+    await this.dashboardCache.invalidate(ctx.tenantId, row.createdByUserId);
     return this.toDetail(ctx, row);
   }
 
-  async dashboard(ctx: TenantContext, requested: RequestScope | undefined): Promise<DashboardResponse> {
+  /**
+   * Status counts for the caller's scope. The scope is authorized first (from the role re-read
+   * this request); only then is the cache, keyed by tenant + scope (+ user), consulted.
+   */
+  async dashboard(
+    ctx: TenantContext,
+    requested: RequestScope | undefined,
+  ): Promise<{ body: DashboardResponse; cache: 'hit' | 'miss' }> {
     const scope = this.resolveScope(ctx, requested);
+    const key = this.dashboardCache.key(ctx, scope);
+    const cached = await this.dashboardCache.get(key);
+    if (cached?.scope === scope) return { body: cached, cache: 'hit' };
+
+    const body = await this.countByStatus(ctx, scope);
+    await this.dashboardCache.set(key, body);
+    return { body, cache: 'miss' };
+  }
+
+  private async countByStatus(ctx: TenantContext, scope: RequestScope): Promise<DashboardResponse> {
     const groups = await this.tenantDb.run(ctx, (tx) =>
       tx.request.groupBy({
         by: ['status'],

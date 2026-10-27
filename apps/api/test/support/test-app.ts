@@ -26,6 +26,9 @@ export function testConfig(overrides: Record<string, string> = {}): AppConfig {
     SHARD_A_DATABASE_URL: toTestUrl(env.SHARD_A_DATABASE_URL!),
     SHARD_B_DATABASE_URL: toTestUrl(env.SHARD_B_DATABASE_URL!),
     REDIS_KEY_PREFIX: freshPrefix(),
+    // Suites make many calls per user; the API limit itself is tested with a small override.
+    API_LIMIT_PER_MINUTE: '100000',
+    LOG_REQUESTS: 'false',
     ...overrides,
   });
 }

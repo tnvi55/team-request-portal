@@ -17,6 +17,8 @@ x-api: &api
     REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
     SESSION_SECRET: ${SESSION_SECRET:?run pnpm local:setup first}
     CURSOR_SECRET: ${CURSOR_SECRET:?run pnpm local:setup first}
+    # Local demo evidence: every API response names the replica that served it (X-Instance-ID).
+    EXPOSE_INSTANCE_ID: 'true'
   depends_on:
     postgres-control: { condition: service_healthy }
     postgres-shard-a: { condition: service_healthy }
