@@ -10,6 +10,8 @@ export const ERROR_CODES = [
   'INVALID_CURRENT_PASSWORD',
   'NOT_FOUND',
   'CONFLICT',
+  /** 409: the change would leave the organization without an active admin. */
+  'LAST_ADMIN',
   'RATE_LIMITED',
   'SERVICE_UNAVAILABLE',
   'INTERNAL_ERROR',

@@ -18,7 +18,7 @@ export interface TenantContext {
 export const isReviewer = (ctx: TenantContext) => ctx.role === 'MANAGER' || ctx.role === 'ADMIN';
 
 /** 403 unless the caller's CURRENT role (re-read this request) is one of `roles`. */
-export function requireRole(ctx: TenantContext, roles: MembershipRole[], message: string): void {
+export function requireRole(ctx: { role: MembershipRole }, roles: MembershipRole[], message: string): void {
   if (!roles.includes(ctx.role)) throw new ApiException(HttpStatus.FORBIDDEN, 'FORBIDDEN', message);
 }
 

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_PIPE } from '@nestjs/core';
+import { AdminModule } from './admin/admin.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { HttpExceptionFilter } from './common/http-exception.filter.js';
 import { SchemaValidationPipe } from './common/schema-validation.pipe.js';
@@ -18,6 +19,7 @@ import { TenantModule } from './tenant/tenant.module.js';
     AuthModule,
     TenantModule,
     RequestsModule,
+    AdminModule,
     HealthModule,
   ],
   providers: [

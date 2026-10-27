@@ -86,6 +86,9 @@ export function describeError(error: unknown): string {
         : 'Please sign in again.';
     case 403:
       return 'You do not have permission to do that.';
+    case 409:
+      // Conflict messages are written for users (e.g. "must keep at least one active admin").
+      return error.body?.message ?? 'That change conflicts with the current state. Reload and try again.';
     case 429: {
       const minutes = error.retryAfterSeconds ? Math.ceil(error.retryAfterSeconds / 60) : null;
       return minutes
