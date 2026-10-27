@@ -273,7 +273,7 @@ Learn: cache keys and scope, TTL, eventual consistency, fail-open vs fail-closed
 - [x] Rehearse docs/demo.md, including shard evidence and failure-path behavior.
 - [x] Complete README setup/troubleshooting and architecture diagrams.
 - [x] Run the local secret scan over the full Git history and confirm no credentials, .env files, or generated demo passwords are tracked.
-- [ ] Review git diff and staged files, commit logical changes, and push the user-selected branch/remote under the user's normal workflow.
+- [x] Review git diff and staged files, commit logical changes, and push the user-selected branch/remote under the user's normal workflow.
 - [x] Record known limitations honestly and update this checklist and session_state.md.
 
 Status: evidence 2026-10-27 (`pnpm demo:verify` all checks passed on the rebuilt replicas: readiness incl. migrations, both API and web replicas with identical builds, one session on api-1 and api-2, CSRF/Origin refusals, tenant field rejected, cache hit, employee scope, 116 + 4 = 120 calls across both replicas then 429, `db:verify`; failover script: api-1 stopped -> all calls 200 on api-2, restarted api-1 serves the same session, web-1 stopped -> pages from web-2; `docker stop` 0.7 s with `Database pools closed (SIGTERM)`; `pnpm verify`, 16 + 86 integration, 6/6 E2E on the replicas, `pnpm build`; full-history secret scan over 28 commits clean and no `.env`/credential files tracked). The walkthrough was rehearsed with these commands and scripts, not yet presented live to the mentor.

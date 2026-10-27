@@ -129,7 +129,7 @@ All results from 2026-10-27 on the Windows 11 + Docker Desktop development machi
 | Shared rate limits | `demo:verify` | 58 calls on api-1 + 58 on api-2 (+4 earlier) = 120, then 429 with Retry-After | Login limit: `auth.int-spec.ts` |
 | Two web/API instances and process restart | `demo:verify`, M8 failover script | both web replicas serve identical assets; with api-1 stopped all calls 200 on api-2; after restart the same session works on api-1; with web-1 stopped pages served by web-2 | `docker stop` 0.7 s, log `Database pools closed (SIGTERM)` |
 | Lint, typecheck, unit/integration/E2E, build | `pnpm verify`, `pnpm test:integration`, `pnpm test:e2e` (on `demo:up`), `pnpm build` | clean; unit 17 API + 9 database; integration 16 + 86; E2E 6/6; build ok | |
-| Fresh checkout and seed twice | see the M8 fresh-clone row in session_state.md | (filled in at the merge check) | |
+| Fresh checkout and seed twice | fresh clone of `m8-handoff` from GitHub: install, verify, build, `audit --prod`, integration, migrate, seed, `db:verify`, seed again, `demo:up`, E2E, `demo:verify` | all pass; `db:verify` output identical after the second seed; E2E 6/6 and every `demo:verify` check on the clone's own replicas | The first attempt stopped at the audit: a new qs advisory, fixed with an override (ADR-013) |
 
 ## Honest limitations to state
 
