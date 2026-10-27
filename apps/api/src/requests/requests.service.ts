@@ -2,17 +2,18 @@ import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type {
   CreateRequestBody,
   DashboardResponse,
+  DecisionBody,
   ListRequestsQuery,
   Page,
   RequestDetail,
   RequestScope,
   RequestSummary,
 } from '@trp/contracts';
-import { RequestAuditAction } from '@trp/database';
+import { RequestAuditAction, RequestStatus } from '@trp/database';
 import { decodeCursor, encodeCursor, type CursorBinding } from '../common/cursor.js';
 import { ApiException } from '../common/errors.js';
 import { APP_CONFIG, type AppConfig } from '../config/env.js';
-import { isReviewer, type TenantContext } from '../tenant/tenant-context.js';
+import { isReviewer, requireRole, type TenantContext } from '../tenant/tenant-context.js';
 import { TenantDbService } from '../tenant/tenant-db.service.js';
 import { PeopleService } from './people.service.js';
 
@@ -125,6 +126,82 @@ export class RequestsService {
       }),
     );
     if (!row) throw new ApiException(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Request not found');
+    return this.toDetail(ctx, row);
+  }
+
+  /**
+   * Approve or reject, as ONE shard transaction:
+   *  1. find the request inside the caller's company (404 otherwise),
+   *  2. refuse self-review (403),
+   *  3. conditional UPDATE: only if still PENDING at the version the reviewer saw,
+   *  4. 0 rows updated -> 409 (someone decided first, or the reviewer's copy is stale),
+   *  5. insert the decision audit event, then commit.
+   * Two simultaneous decisions cannot both match step 3: Postgres makes the second UPDATE wait
+   * for the first and re-checks its WHERE after the first commits, so exactly one wins.
+   * Any error (including a failed audit insert) rolls the whole decision back.
+   */
+  async decide(
+    ctx: TenantContext,
+    id: string,
+    body: DecisionBody,
+    requestId: string,
+  ): Promise<RequestDetail> {
+    requireRole(ctx, ['MANAGER', 'ADMIN'], 'Only managers and admins can decide requests');
+    const row = await this.tenantDb.run(ctx, async (tx) => {
+      const current = await tx.request.findFirst({
+        where: { id, tenantId: ctx.tenantId },
+        select: { createdByUserId: true },
+      });
+      if (!current) throw new ApiException(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Request not found');
+      if (current.createdByUserId === ctx.userId) {
+        throw new ApiException(HttpStatus.FORBIDDEN, 'FORBIDDEN', 'You cannot review your own request');
+      }
+
+      const updated = await tx.request.updateMany({
+        where: {
+          id,
+          tenantId: ctx.tenantId,
+          status: RequestStatus.PENDING,
+          version: body.expectedVersion,
+        },
+        data: {
+          status: body.decision,
+          reviewedByUserId: ctx.userId,
+          reviewComment: body.comment ?? null,
+          reviewedAt: new Date(),
+          version: { increment: 1 },
+        },
+      });
+      if (updated.count === 0) {
+        throw new ApiException(
+          HttpStatus.CONFLICT,
+          'CONFLICT',
+          'This request was already decided or has changed. Reload it and try again.',
+        );
+      }
+
+      const decided = await tx.request.findFirstOrThrow({ where: { id, tenantId: ctx.tenantId } });
+      await tx.requestAuditEvent.create({
+        data: {
+          tenantId: ctx.tenantId,
+          requestId: id,
+          actorUserId: ctx.userId,
+          action:
+            body.decision === 'APPROVED'
+              ? RequestAuditAction.REQUEST_APPROVED
+              : RequestAuditAction.REQUEST_REJECTED,
+          correlationRequestId: requestId,
+          // Allowlisted state change only; the comment text itself stays on the request row.
+          metadata: {
+            from: RequestStatus.PENDING,
+            to: decided.status,
+            version: decided.version,
+            hasComment: !!body.comment,
+          },
+        },
+      });
+      return decided;
+    });
     return this.toDetail(ctx, row);
   }
 

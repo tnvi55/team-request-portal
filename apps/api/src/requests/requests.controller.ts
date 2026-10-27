@@ -2,11 +2,13 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, Req } 
 import {
   CreateRequestSchema,
   DashboardQuerySchema,
+  DecisionSchema,
   ListRequestsQuerySchema,
   RequestIdSchema,
   type CreateRequestBody,
   type DashboardQuery,
   type DashboardResponse,
+  type DecisionBody,
   type ListRequestsQuery,
   type Page,
   type RequestDetail,
@@ -50,6 +52,18 @@ export class RequestsController {
     @Param('id', { schema: RequestIdSchema }) id: string,
   ): Promise<RequestDetail> {
     return this.requests.detail(tenantContextOf(principal), id);
+  }
+
+  /** 200 with the decided request; 403 role/self-review; 404 outside the company; 409 stale. */
+  @Post('requests/:id/decision')
+  @HttpCode(HttpStatus.OK)
+  decide(
+    @CurrentPrincipal() principal: Principal,
+    @Req() req: Request,
+    @Param('id', { schema: RequestIdSchema }) id: string,
+    @Body({ schema: DecisionSchema }) body: DecisionBody,
+  ): Promise<RequestDetail> {
+    return this.requests.decide(tenantContextOf(principal), id, body, req.requestId);
   }
 
   @Get('dashboard')

@@ -7,6 +7,8 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
+  // Multi-user journeys sign in several times (Argon2) and the dev server compiles pages on first visit.
+  timeout: 60_000,
   reporter: 'list',
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:8080',

@@ -312,3 +312,48 @@ a:focus-visible {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.decision {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.decision label {
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+}
+
+.audit-table caption {
+  text-align: left;
+  padding: 0.25rem 0;
+}
+
+.audit-table th,
+.audit-table td {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.audit-table a {
+  color: var(--accent);
+}

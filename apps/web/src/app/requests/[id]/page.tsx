@@ -1,10 +1,11 @@
 'use client';
 
-import type { RequestDetail } from '@trp/contracts';
+import type { MeResponse, RequestDetail } from '@trp/contracts';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AppHeader } from '../../../components/app-header';
+import { DecisionPanel } from '../../../components/decision-panel';
 import { RequireAuth } from '../../../components/require-auth';
 import { formatDate, StatusBadge } from '../../../components/status-badge';
 import { api, ApiRequestError, describeError } from '../../../lib/api';
@@ -15,8 +16,10 @@ type State =
   | { kind: 'missing' }
   | { kind: 'error'; message: string };
 
-function Detail({ id }: { id: string }) {
+function Detail({ id, me }: { id: string; me: MeResponse }) {
   const [state, setState] = useState<State>({ kind: 'loading' });
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
   useEffect(() => {
     let active = true;
@@ -32,7 +35,7 @@ function Detail({ id }: { id: string }) {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, reloadKey]);
 
   if (state.kind === 'loading') return <p aria-live="polite">Loading request…</p>;
   if (state.kind === 'missing') {
@@ -52,38 +55,49 @@ function Detail({ id }: { id: string }) {
     );
 
   const r = state.request;
+  // The API enforces these rules; the UI only hides buttons that would be refused.
+  const canDecide = me.role !== 'EMPLOYEE' && r.status === 'PENDING' && r.createdBy.id !== me.user.id;
   return (
-    <article className="card" aria-labelledby="request-title">
-      <div className="title-row">
-        <h1 id="request-title">{r.title}</h1>
-        <StatusBadge status={r.status} />
-      </div>
-      <dl className="facts">
-        <dt>Category</dt>
-        <dd>{r.category.toLowerCase()}</dd>
-        <dt>Submitted by</dt>
-        <dd>{r.createdBy.displayName ?? 'Former member'}</dd>
-        <dt>Submitted</dt>
-        <dd>{formatDate(r.createdAt)}</dd>
-        {r.reviewedAt && (
-          <>
-            <dt>Reviewed by</dt>
-            <dd>{r.reviewedBy?.displayName ?? 'Former member'}</dd>
-            <dt>Reviewed</dt>
-            <dd>{formatDate(r.reviewedAt)}</dd>
-          </>
-        )}
-        {r.reviewComment && (
-          <>
-            <dt>Comment</dt>
-            <dd>{r.reviewComment}</dd>
-          </>
-        )}
-      </dl>
-      <h2>Description</h2>
-      <p className="pre-wrap">{r.description}</p>
-      <Link href="/requests">Back to requests</Link>
-    </article>
+    <>
+      <article className="card" aria-labelledby="request-title">
+        <div className="title-row">
+          <h1 id="request-title">{r.title}</h1>
+          <StatusBadge status={r.status} />
+        </div>
+        <dl className="facts">
+          <dt>Category</dt>
+          <dd>{r.category.toLowerCase()}</dd>
+          <dt>Submitted by</dt>
+          <dd>{r.createdBy.displayName ?? 'Former member'}</dd>
+          <dt>Submitted</dt>
+          <dd>{formatDate(r.createdAt)}</dd>
+          {r.reviewedAt && (
+            <>
+              <dt>Reviewed by</dt>
+              <dd>{r.reviewedBy?.displayName ?? 'Former member'}</dd>
+              <dt>Reviewed</dt>
+              <dd>{formatDate(r.reviewedAt)}</dd>
+            </>
+          )}
+          {r.reviewComment && (
+            <>
+              <dt>Comment</dt>
+              <dd>{r.reviewComment}</dd>
+            </>
+          )}
+        </dl>
+        <h2>Description</h2>
+        <p className="pre-wrap">{r.description}</p>
+        <Link href="/requests">Back to requests</Link>
+      </article>
+      {canDecide && (
+        <DecisionPanel
+          request={r}
+          onDecided={(updated) => setState({ kind: 'loaded', request: updated })}
+          onConflict={reload}
+        />
+      )}
+    </>
   );
 }
 
@@ -95,7 +109,7 @@ export default function RequestDetailPage() {
         <>
           <AppHeader me={me} />
           <main className="page">
-            <Detail id={id} />
+            <Detail id={id} me={me} />
           </main>
         </>
       )}

@@ -3,6 +3,7 @@ import {
   createTenantClient,
   hashPassword,
   MembershipRole,
+  RequestAuditAction,
   RequestCategory,
   RequestStatus,
   ShardKey,
@@ -22,6 +23,7 @@ export const EMAIL = {
   atlasEmployee: 'employee@atlas.req',
   atlasCoworker: 'coworker@atlas.req',
   atlasManager: 'manager@atlas.req',
+  atlasAdmin: 'admin@atlas.req',
   atlasPager: 'pager@atlas.req',
   cedarEmployee: 'employee@cedar.req',
   cedarManager: 'manager@cedar.req',
@@ -32,6 +34,7 @@ export const EMAIL = {
 export const CEDAR_REQUEST = '2c000000-0000-4000-8000-0000000000c1';
 export const BIRCH_REQUEST = '2b000000-0000-4000-8000-0000000000b1';
 export const PAGER_REQUESTS = 45;
+export const CEDAR_AUDIT_EVENT = '3c000000-0000-4000-8000-0000000000c1';
 
 const controlUrl = () => toTestUrl(process.env.CONTROL_MIGRATION_URL!);
 export const shardUrl = (key: ShardKey) =>
@@ -75,6 +78,7 @@ export async function loadTenantFixture(): Promise<Record<keyof typeof EMAIL, st
       ['atlasEmployee', ORGS.atlas, MembershipRole.EMPLOYEE],
       ['atlasCoworker', ORGS.atlas, MembershipRole.EMPLOYEE],
       ['atlasManager', ORGS.atlas, MembershipRole.MANAGER],
+      ['atlasAdmin', ORGS.atlas, MembershipRole.ADMIN],
       ['atlasPager', ORGS.atlas, MembershipRole.EMPLOYEE],
       ['cedarEmployee', ORGS.cedar, MembershipRole.EMPLOYEE],
       ['cedarManager', ORGS.cedar, MembershipRole.MANAGER],
@@ -124,6 +128,19 @@ export async function loadTenantFixture(): Promise<Record<keyof typeof EMAIL, st
         }),
       }),
     );
+    await withTenant(shardA, ORGS.atlas, async (tx) => {
+      const pager = await tx.request.findMany({ where: { createdByUserId: userIds.atlasPager } });
+      await tx.requestAuditEvent.createMany({
+        data: pager.map((r) => ({
+          tenantId: ORGS.atlas,
+          requestId: r.id,
+          actorUserId: userIds.atlasPager,
+          action: RequestAuditAction.REQUEST_CREATED,
+          occurredAt: r.createdAt,
+          correlationRequestId: 'fixture',
+        })),
+      });
+    });
     await withTenant(shardA, ORGS.cedar, (tx) =>
       tx.request.create({
         data: {
@@ -133,6 +150,18 @@ export async function loadTenantFixture(): Promise<Record<keyof typeof EMAIL, st
           description: 'Must never be visible to Atlas.',
           category: RequestCategory.OTHER,
           createdByUserId: userIds.cedarEmployee,
+        },
+      }),
+    );
+    await withTenant(shardA, ORGS.cedar, (tx) =>
+      tx.requestAuditEvent.create({
+        data: {
+          id: CEDAR_AUDIT_EVENT,
+          tenantId: ORGS.cedar,
+          requestId: CEDAR_REQUEST,
+          actorUserId: userIds.cedarEmployee,
+          action: RequestAuditAction.REQUEST_CREATED,
+          correlationRequestId: 'fixture',
         },
       }),
     );

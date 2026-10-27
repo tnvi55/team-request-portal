@@ -29,7 +29,7 @@ export function AppHeader({ me }: { me: MeResponse }) {
           · {me.user.displayName} ({me.role.toLowerCase()})
         </span>
       </div>
-      <AppNav />
+      <AppNav role={me.role} />
       <button type="button" onClick={() => void onLogout()} disabled={pending}>
         {pending ? 'Signing out…' : 'Sign out'}
       </button>
