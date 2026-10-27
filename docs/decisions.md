@@ -114,6 +114,7 @@ Status: selected in M1.
 Infrastructure (3× Postgres, Redis, Nginx) runs in Docker Compose. In development, Next.js and NestJS run on the Windows host (`pnpm dev`) bound to 127.0.0.1, and the Nginx container reaches them through `host.docker.internal`. The replica demo runs production images of both apps inside Compose (`pnpm demo:up`).
 Reason: fast hot reload without Windows bind-mount file-watching problems; WSL2 has only the docker-desktop distro on this machine. Verified that the container reaches loopback-bound host ports.
 Consequence: databases/Redis publish loopback-only ports (5433–5435, 6380) for host apps and inspection tools. Package scripts avoid shell-specific syntax; setup and secret-scan helpers are Node scripts.
+Update 2026-10-27 (M5 merge check): Docker 29 maps `host.docker.internal` to an IPv4 and an unreachable IPv6 address. With Nginx's default `max_fails=1`, the IPv6 address was always marked down and one refused or closed connection (dev API restarting) marked the IPv4 one down too, so for 10 s every request got 502 "no live upstreams". This caused the intermittent E2E failures previously blamed on the PC resuming. `dev.conf` now uses `max_fails=0`: a failed connect still moves to the other address at once, but the single real host is never taken out. The demo config keeps passive health checks because it has two real replicas.
 
 ## ADR-013 — Supply-chain guards for dependencies
 

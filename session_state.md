@@ -25,6 +25,8 @@ Implementation status: M0–M5 complete and verified
 | `pnpm verify`, `pnpm build`, `pnpm test:integration`, `pnpm db:verify` | clean; unit 16 API + 9 database; 16/16 database + 61/61 API; all checks passed |
 | `pnpm audit --prod` | no known vulnerabilities |
 | `pnpm demo:up` + concurrent decisions script | approve on api-2 -> 409, reject on api-1 -> 200; final REJECTED v1; one decision audit event |
+| Fresh clone of m5-decisions from GitHub (2026-10-27) | install, verify (9 + 16 unit), build, `audit --prod` clean, integration 16/16 + 61/61, migrate, seed, db:verify: all pass |
+| E2E against the clone's `pnpm dev` | first run 4/5: Nginx 502 "no live upstreams" on `/auth/me` (dev proxy marked both host.docker.internal addresses down). Fixed `dev.conf` with `max_fails=0` (ADR-012 update); 300 readiness calls all 200, then 5/5 and 5/5; a third back-to-back run hit the documented 5-per-15-min login limit on manager@atlas (expected) |
 
 ## Not run / known gaps
 

@@ -76,7 +76,7 @@ Daily commands:
 
 Not yet available: `demo:verify` (M8).
 
-Demo accounts: `pnpm db:seed` writes random passwords for `admin|manager|employee|employee2@<atlas|cedar|birch>.example` to `.local/demo-credentials.json` (Git-ignored). Use them on the sign-in page. Five wrong attempts on one account block it for 15 minutes (Retry-After tells you how long).
+Demo accounts: `pnpm db:seed` writes random passwords for `admin|manager|employee|employee2@<atlas|cedar|birch>.example` to `.local/demo-credentials.json` (Git-ignored). Use them on the sign-in page. Five sign-in attempts on one account within 15 minutes (right or wrong) block further attempts until the window ends (Retry-After tells you how long). Each `pnpm test:e2e` run signs some accounts in several times, so wait 15 minutes between back-to-back runs.
 
 Health endpoints: `GET /api/v1/health/live` (process alive) and `GET /api/v1/health/ready` (200 when all dependencies answer, otherwise 503 listing which one is down; no hostnames or errors exposed).
 
@@ -93,7 +93,7 @@ All bound to 127.0.0.1, never to the network.
 
 ### Troubleshooting
 
-- **502 on localhost:8080**: `pnpm dev` is not running (dev mode), or run `pnpm demo:down` if you left demo mode.
+- **502 on localhost:8080**: `pnpm dev` is not running (dev mode), or run `pnpm demo:down` if you left demo mode. If `pnpm infra:up` ran before 2026-10-27, restart the proxy once (`docker compose --env-file .env -f infra/compose.yaml restart proxy`) so it loads the current `dev.conf`.
 - **Port already in use**: another local Postgres/Redis or an old dev server. On Windows, stopping a terminal can leave `node` running: `Get-NetTCPConnection -LocalPort 3000,3001 -State Listen` shows the owning process.
 - **`infra:up` says "run pnpm local:setup first"**: `.env` is missing values.
 - **Database roles**: `infra/postgres/init/01-roles.sh` runs only when a volume is first created. Changing passwords in `.env` afterwards does not change existing roles.
