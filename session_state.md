@@ -8,7 +8,7 @@ Implementation status: M0–M6 complete and verified
 ## Completed
 
 - M0–M5: workspace, infra, schemas, shard routing, RLS, seed, secure sessions, tenant-scoped requests, atomic decisions and request audit (details in plan.md and the Learning Guide). M5 merged into `main` 2026-10-27 together with the dev-proxy fix (`max_fails=0` in `infra/nginx/dev.conf`, ADR-012 update).
-- M6 (branch `m6-users`): `GET/POST /admin/users`, `PATCH /admin/users/:membershipId` in `apps/api/src/admin/`. Every write is one control transaction: organization row lock (`FOR UPDATE`), caller re-checked as active ADMIN, change, control audit event (`MEMBER_CREATED`, `MEMBER_ROLE_CHANGED`, `MEMBER_DISABLED`, `MEMBER_ENABLED`). Last active admin protected (409 `LAST_ADMIN`); disabling increments `sessionVersion`; duplicate email in any company is a generic 409. Web: `/admin/users` (create form, role select, enable/disable, Load more) and a Users nav link for admins (ADR-018).
+- M6 (merged into `main` 2026-10-27 after a fresh-clone check): `GET/POST /admin/users`, `PATCH /admin/users/:membershipId` in `apps/api/src/admin/`. Every write is one control transaction: organization row lock (`FOR UPDATE`), caller re-checked as active ADMIN, change, control audit event (`MEMBER_CREATED`, `MEMBER_ROLE_CHANGED`, `MEMBER_DISABLED`, `MEMBER_ENABLED`). Last active admin protected (409 `LAST_ADMIN`); disabling increments `sessionVersion`; duplicate email in any company is a generic 409. Web: `/admin/users` (create form, role select, enable/disable, Load more) and a Users nav link for admins (ADR-018).
 - Fixed an M3 UI bug found by the new E2E: after a password change the "Password changed" notice was lost because RequireAuth's redirect raced the page's own; the page now does a full load to `/login?changed=1`.
 - Git: `main` tracks `origin` (https://github.com/tnvi55/team-request-portal.git). Identity `Tanvi <tanvi.jain@fiftyfivetech.io>`.
 
@@ -22,6 +22,7 @@ Implementation status: M0–M6 complete and verified
 | `pnpm test:integration` | 16/16 database + 76/76 API (5 files) |
 | `pnpm test:e2e` (with `pnpm dev`) | 6/6, including create -> forced password change -> disable -> self-demote refused |
 | `pnpm db:verify` | all checks passed |
+| Fresh clone of m6-users from GitHub | install, verify (9 + 16 unit), build, `audit --prod` clean, integration 16/16 + 76/76, migrate, seed, db:verify, then `demo:up` + E2E 6/6 against the clone's production images: all pass |
 | `pnpm demo:up` + replica script | demote via one API replica -> manager 403 on both replicas; restore via the other -> 200 on both; two simultaneous self-removals by the only admin -> 409 LAST_ADMIN from each replica |
 
 ## Not run / known gaps
