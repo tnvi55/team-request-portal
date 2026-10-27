@@ -27,3 +27,4 @@ minimumReleaseAgeExclude:
 overrides:
   body-parser: 2.4.0
   multer: 2.5.0
+  qs: 6.16.1

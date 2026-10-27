@@ -125,6 +125,8 @@ Consequence: brand-new patch releases are adopted a week late. An urgent securit
 
 Applied 2026-10-26: the M4 pre-merge check found `next build` refusing to finish (Next.js security gate). `pnpm audit`: next 16.4.0 (2 critical RCE, 1 high DoS; patched 16.4.1+), body-parser 2.3.0 and multer 2.4.0 (high DoS, via @nestjs/platform-express), deepmerge-ts and mysql2 (via the Prisma CLI), fast-uri (via the Nest CLI). Fixed: next and eslint-config-next 16.4.2, Prisma 7.10.1 (brings patched mysql2 and deepmerge-ts), and pnpm `overrides` body-parser 2.4.0 + multer 2.5.0 with a temporary `minimumReleaseAgeExclude` (both published 2026-10-22; remove the exclusion after 2026-10-29). Result: `pnpm audit --prod` reports no known vulnerabilities. Deferred: fast-uri 3.1.9 (dev tooling only, moderate/low) until it passes the 7-day rule. Exposure note: the app uses neither next/image with SVG, `use cache`, Server Actions, nor file uploads.
 
+Applied 2026-10-27: the M8 pre-merge check found GHSA-6pq8-jhm2-2vcw (moderate DoS in `qs.stringify` with `arrayFormat: 'comma'`; qs 6.16.0 via express). The app never calls `qs.stringify` (Express only parses query strings), so exposure is unlikely, but the gate stays strict: pnpm `overrides` qs 6.16.1, published 2026-10-14, so no release-age exclusion was needed. `pnpm audit --prod` is clean again; the full audit lists only the deferred dev-only fast-uri findings.
+
 ## ADR-014 — Migration workflow, database roles, and test databases
 
 Status: selected in M2.
