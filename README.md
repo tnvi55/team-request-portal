@@ -2,7 +2,7 @@
 
 A local multi-tenant SaaS learning project: employees submit equipment/software requests, reviewers approve or reject, and organization admins manage accounts.
 
-**Current status: M4 complete (tenant-aware requests).** Sign in at http://localhost:8080, submit requests, browse them with filters and paging, and see dashboard counts. Employees see their own requests; managers and admins see their company's. Approvals arrive in M5, user administration in M6. Progress lives in [plan.md](plan.md) and [session_state.md](session_state.md).
+**Current status: M5 complete (decisions and audit).** Sign in at http://localhost:8080, submit requests, browse them with filters and paging, and see dashboard counts. Managers and admins approve or reject other people's requests (a rejection needs a comment); admins see the company audit history under Audit. User administration arrives in M6. Progress lives in [plan.md](plan.md) and [session_state.md](session_state.md).
 
 ## Selected stack and requirements
 

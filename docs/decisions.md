@@ -158,6 +158,16 @@ Status: selected in M4.
 - **Availability:** a missing directory entry or an unreachable shard is 503 for that company only; other companies keep working (tested with shard B down).
 Consequence: tenant data requires a healthy control database (for the guard) and the company's own shard.
 
+## ADR-017 — Decisions and the request audit trail
+
+Status: selected in M5.
+- **Single winner without locks held by the app:** a decision is one shard transaction: tenant-scoped lookup (404), self-review check (403), then `UPDATE ... WHERE id AND tenant_id AND status = 'PENDING' AND version = expectedVersion` that also increments `version`. Zero rows updated means another reviewer won or the caller's copy is stale: 409. Postgres serialises the competing UPDATEs on the row and re-checks the WHERE after the first commits, so this holds across API replicas.
+- **Audit with the change:** the decision audit event is inserted in the same transaction; any failure (proven by revoking the runtime role's INSERT) rolls the decision back. Metadata is an allowlist (`from`, `to`, `version`, `hasComment`); the comment text stays on the request row.
+- **Defence in depth:** the database CHECK `requests_no_self_review` and the PENDING/reviewer CHECK back up the service rules; the runtime role has no UPDATE/DELETE on audit rows.
+- **Admin audit view:** `GET /admin/audit`, ADMIN only (current role), newest first with the M4 signed cursor (endpoint "audit"), same-shard join for request titles, batched actor names.
+- **Roles:** checked in services from the freshly loaded membership (`requireRole`), not with a generic roles framework.
+Consequence: a reviewer who loses a race sees a 409 and reloads; nothing retries automatically.
+
 ## Deferred questions / parking lot
 
 | ID | Question | Treatment |

@@ -250,6 +250,8 @@ sequenceDiagram
     Note over M1,M2: M1 gets 200; M2 gets 409; exactly one audit event
 ~~~
 
+Implemented in M5 as `RequestsService.decide` (ADR-017); verified with 10 concurrent approve/reject pairs per test run and across both demo API replicas.
+
 Do not use a read-then-unconditional-update sequence. Row locking or conditional updates must prevent concurrent decisions. Fault-injection tests can use a test-only repository seam; do not add a public "make audit fail" endpoint.
 
 ### Account/role mutation

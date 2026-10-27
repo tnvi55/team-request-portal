@@ -219,12 +219,14 @@ Learn: tenant context, ownership filters, cursor pagination, 404 vs 403. Exercis
 
 ### M5 — review decisions and transactional audit
 
-- [ ] Implement approval/rejection UI/API and ADMIN request-audit page.
-- [ ] Make the pending-state check, version check, decision update, and audit insert one transaction.
-- [ ] Reject self-review and invalid transitions.
-- [ ] Prevent request writes without corresponding business audit events.
-- [ ] Keep runtime audit permissions append-only for the application role.
-- [ ] Include actor ID, tenant ID, action, entity ID, timestamp, request ID, and safe metadata.
+- [x] Implement approval/rejection UI/API and ADMIN request-audit page.
+- [x] Make the pending-state check, version check, decision update, and audit insert one transaction.
+- [x] Reject self-review and invalid transitions.
+- [x] Prevent request writes without corresponding business audit events.
+- [x] Keep runtime audit permissions append-only for the application role.
+- [x] Include actor ID, tenant ID, action, entity ID, timestamp, request ID, and safe metadata.
+
+Status: gate passed 2026-10-27 (13 decision integration tests incl. 10 races per run, 40 races over 4 runs; audit-fault rollback; runtime-role audit UPDATE/DELETE denied; Playwright approve + audit journey; concurrent decisions across api-1/api-2 in the replica demo: one 200, one 409, one event).
 
 Gate: concurrent approve/reject gives exactly one success, one 409, and one decision event. An induced audit-write failure rolls back the decision. Direct runtime-role audit UPDATE/DELETE is denied.
 

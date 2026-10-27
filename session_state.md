@@ -1,33 +1,34 @@
 # Session state
 
-Last updated: 2026-10-22
+Last updated: 2026-10-27
 Project: Team Request & Approval Portal
-Current milestone: M5 — review decisions and transactional audit (not started)
-Implementation status: M0–M4 complete and verified
+Current milestone: M6 — company user administration (not started)
+Implementation status: M0–M5 complete and verified
 
 ## Completed
 
-- M0–M3: workspace, infra, schemas, shard routing, RLS, seed, secure sessions (details in plan.md and the Learning Guide). M3 merged into `main` 2026-10-22 after a fresh-clone check (install, verify, build, 16+28 integration, db:verify, 3 E2E against the clone's own servers).
-- M4 (branch `m4-requests`): tenant context from the guard's membership + directory query; `TenantDbService.run` (withTenant + 503 on shard outage); `POST /requests` (request + REQUEST_CREATED audit in one shard transaction), `GET /requests` (scope/status/category, signed keyset cursor), `GET /requests/:id` (404 outside scope), `GET /dashboard` (counts per scope); batched display names from control; strict zod schemas for body, query and params; pages: requests list with filters + Load more, new request, detail, dashboard tiles (ADR-016).
+- M0–M4: workspace, infra, schemas, shard routing, RLS, seed, secure sessions, tenant-scoped requests (details in plan.md and the Learning Guide). M4 merged into `main` 2026-10-26.
+- Security fix before the M4 merge (commit e16ef90, ADR-013): the fresh-clone build stopped on Next.js's security gate. next/eslint-config-next 16.4.2, Prisma 7.10.1, pnpm overrides body-parser 2.4.0 + multer 2.5.0 with a temporary `minimumReleaseAgeExclude` (remove after 2026-10-29). `pnpm audit --prod`: no known vulnerabilities. Deferred: fast-uri 3.1.9 (dev-only, moderate/low) until it passes the 7-day rule.
+- M5 (branch `m5-decisions`): `POST /requests/:id/decision` (one shard transaction: tenant lookup 404, self-review 403, conditional UPDATE on PENDING + expectedVersion, 409 on zero rows, decision audit event), `GET /admin/audit` (ADMIN only, signed cursor, request titles via same-shard join, batched actor names), `requireRole` helper; decision panel on the request detail page (disabled while sending, 409 reloads), admin Audit page and nav link; Playwright E2E timeout raised to 60 s for multi-user journeys (ADR-017).
 - Git: `main` tracks `origin` (https://github.com/tnvi55/team-request-portal.git). Identity `Tanvi <tanvi.jain@fiftyfivetech.io>`.
 
-## Verified commands and results (2026-10-22)
+## Verified commands and results (2026-10-26 / 2026-10-27)
 
 | Command | Result |
 | --- | --- |
-| `pnpm --filter @trp/api test:integration` | 48/48 (4 health, 24 auth, 20 requests) on *_test databases |
-| Mutation: drop ownership filter in detail | coworker test failed as expected; restored |
-| Mutation: drop app-level tenantId filters | all 20 request tests still passed: RLS alone kept Atlas out of Cedar (defence in depth); restored |
-| Audit fault: owner revokes INSERT on request_audit_events for trp_runtime | POST /requests -> 500 generic body, request count unchanged (rollback); grant restored |
-| Shard B unreachable (bad URL) | Birch -> 503, Atlas still 200 on the same instance |
-| `pnpm test:e2e` (with `pnpm dev`) | 4/4: auth flow + submit -> coworker 404 -> manager company view |
-| `pnpm verify` | clean; unit 16 API + 9 database |
-| `pnpm build`, `pnpm test:integration`, `pnpm db:verify` | ok; 16/16 database + 48/48 API; all checks passed |
-| `pnpm demo:up` + script through :8080 | login 200; create 201 on api-1; detail 200 alternating api-2/api-1, same request; dashboard 200 |
+| Fresh clone of m4-requests (before fix) | build failed: Next.js SecurityFatalError; integration hit a Windows DLL-init/fork failure (transient) |
+| `pnpm audit` (before fix) | 12 advisories: next 2 critical + 1 high, body-parser/multer high (prod); deepmerge-ts, mysql2, fast-uri (dev) |
+| Fresh clone of m4-requests (after fix) | install, verify, build (Next 16.4.2), 16+48 integration, migrate, seed, db:verify, 4/4 E2E against the clone: all pass; merged |
+| `pnpm --filter @trp/api test:integration` | 61/61 (13 new decision tests); decision suite green 4 runs in a row (40 races) |
+| Mutation: drop PENDING/version condition from the decision UPDATE | 3 tests failed (decide-once, stale version, race); restored |
+| `pnpm test:e2e` (with `pnpm dev`) | 5/5. An earlier run had 2 auth tests fail while the dev API restarted after the PC resumed (502 shown as generic errors); clean rerun all green |
+| `pnpm verify`, `pnpm build`, `pnpm test:integration`, `pnpm db:verify` | clean; unit 16 API + 9 database; 16/16 database + 61/61 API; all checks passed |
+| `pnpm audit --prod` | no known vulnerabilities |
+| `pnpm demo:up` + concurrent decisions script | approve on api-2 -> 409, reject on api-1 -> 200; final REJECTED v1; one decision audit event |
 
 ## Not run / known gaps
 
-- Dev data now also contains requests created by E2E and the replica check (synthetic, harmless).
+- Remove the body-parser/multer `minimumReleaseAgeExclude` after 2026-10-29; update fast-uri once 3.1.9 is 7 days old.
 - Carried over: X-Forwarded-For spoofable only by local processes calling 127.0.0.1:3001 directly; Argon2 not benchmarked; ESLint 9 unsupported upstream; readiness does not check migrations (M7).
 
 ## Blockers
@@ -36,11 +37,11 @@ None.
 
 ## Learning Guide
 
-Long-form guide for the learner (Claude Doc): https://claude.ai/artifact/7aignW34LB1LeGeG37aFYS. Covers M0–M4. Update it after each milestone.
+Long-form guide for the learner (Claude Doc): https://claude.ai/artifact/7aignW34LB1LeGeG37aFYS. Covers M0–M5. Update it after each milestone.
 
 ## Next task
 
-M5 from plan.md: approve/reject UI and API; one transaction for pending + version check, conditional update, and decision audit; reject self-review and invalid transitions; ADMIN request-audit page; concurrency test (one success, one 409, one event), audit-failure rollback, and runtime-role UPDATE/DELETE denial on audit.
+M6 from plan.md: company user list, account creation (temporary password, mustChangePassword, user + membership + control audit in one control transaction), role change and enable/disable with an organization row lock that protects the last active admin, current-ADMIN checks on every write; tests for role checks, session effects, and concurrent removal of the final admins.
 
 ## Handoff discipline
 
