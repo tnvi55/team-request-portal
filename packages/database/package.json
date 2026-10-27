@@ -14,7 +14,7 @@
     }
   },
   "scripts": {
-    "generate": "prisma generate --config prisma/control/prisma.config.ts && prisma generate --config prisma/tenant/prisma.config.ts",
+    "generate": "prisma generate --config prisma/control/prisma.config.ts && prisma generate --config prisma/tenant/prisma.config.ts && node prisma/list-migrations.mjs",
     "build": "pnpm generate && tsc -p tsconfig.build.json",
     "typecheck": "pnpm build && tsc -p tsconfig.json",
     "migrate:all": "pnpm build && node dist/scripts/migrate-all.js",

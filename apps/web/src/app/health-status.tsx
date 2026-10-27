@@ -11,6 +11,7 @@ const LABELS: Record<keyof ReadinessResponse['checks'], string> = {
   shardA: 'Tenant shard A',
   shardB: 'Tenant shard B',
   redis: 'Redis',
+  migrations: 'Database migrations',
 };
 
 async function fetchReadiness(): Promise<State> {

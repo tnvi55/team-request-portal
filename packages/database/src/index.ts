@@ -14,3 +14,4 @@ export { withTenant, type TenantTransaction } from './tenant-transaction.js';
 
 export { MembershipRole, ShardKey } from './generated/control/enums.js';
 export { RequestAuditAction, RequestCategory, RequestStatus } from './generated/tenant/enums.js';
+export { CONTROL_MIGRATIONS, TENANT_MIGRATIONS } from './generated/migrations.js';

@@ -1,7 +1,8 @@
 /** Status of one required dependency. Never includes hostnames, URLs, or error text. */
 export type DependencyStatus = 'up' | 'down';
 
-export const READINESS_DEPENDENCIES = ['control', 'shardA', 'shardB', 'redis'] as const;
+/** `migrations`: every committed migration is applied (and none failed) in control and both shards. */
+export const READINESS_DEPENDENCIES = ['control', 'shardA', 'shardB', 'redis', 'migrations'] as const;
 export type ReadinessDependency = (typeof READINESS_DEPENDENCIES)[number];
 
 /** GET /api/v1/health/live */

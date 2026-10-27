@@ -4,6 +4,7 @@
 // 3. App roles are not superuser and cannot bypass RLS.
 // 4. Each organization's rows exist on its directory shard and on no other shard.
 // 5. The runtime role sees zero tenant rows without a tenant context.
+// 6. The runtime role may only read the migration history (readiness check, M7).
 import pg from 'pg';
 import { ShardKey } from '../generated/control/enums.js';
 import { assertLocal, databaseName, loadRootEnv, targetFromArgs, targets } from './support.js';
@@ -42,7 +43,18 @@ async function tenantCounts(c: pg.Client, tenantId: string): Promise<{ requests:
   }
 }
 
+/** The runtime role's privileges on Prisma's history table must be exactly SELECT. */
+async function checkHistoryReadOnly(c: pg.Client, label: string): Promise<void> {
+  const r = await c.query<{ privilege_type: string }>(
+    `SELECT privilege_type FROM information_schema.role_table_grants
+     WHERE grantee = 'trp_runtime' AND table_name = '_prisma_migrations' ORDER BY 1`,
+  );
+  const grants = r.rows.map((row) => row.privilege_type).join(',');
+  check(grants === 'SELECT', `${label}: runtime can only read the migration history (${grants || 'none'})`);
+}
+
 console.log(`Target: ${target}\n`);
+await withClient(urls.control.migration, (c) => checkHistoryReadOnly(c, 'control'));
 
 // --- Directory --------------------------------------------------------------
 const directory = await withClient(urls.control.migration, async (c) => {
@@ -100,6 +112,7 @@ for (const key of Object.values(ShardKey)) {
     );
     const auditGrants = audit.rows.map((r) => r.privilege_type).join(',');
     check(auditGrants === 'INSERT,SELECT', `${key}: runtime audit grants are append-only (${auditGrants})`);
+    await checkHistoryReadOnly(c, key);
   });
 }
 check(
