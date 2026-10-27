@@ -9,7 +9,7 @@ Implementation status: M0–M5 complete and verified
 
 - M0–M4: workspace, infra, schemas, shard routing, RLS, seed, secure sessions, tenant-scoped requests (details in plan.md and the Learning Guide). M4 merged into `main` 2026-10-26.
 - Security fix before the M4 merge (commit e16ef90, ADR-013): the fresh-clone build stopped on Next.js's security gate. next/eslint-config-next 16.4.2, Prisma 7.10.1, pnpm overrides body-parser 2.4.0 + multer 2.5.0 with a temporary `minimumReleaseAgeExclude` (remove after 2026-10-29). `pnpm audit --prod`: no known vulnerabilities. Deferred: fast-uri 3.1.9 (dev-only, moderate/low) until it passes the 7-day rule.
-- M5 (branch `m5-decisions`): `POST /requests/:id/decision` (one shard transaction: tenant lookup 404, self-review 403, conditional UPDATE on PENDING + expectedVersion, 409 on zero rows, decision audit event), `GET /admin/audit` (ADMIN only, signed cursor, request titles via same-shard join, batched actor names), `requireRole` helper; decision panel on the request detail page (disabled while sending, 409 reloads), admin Audit page and nav link; Playwright E2E timeout raised to 60 s for multi-user journeys (ADR-017).
+- M5 (merged into `main` 2026-10-27 after a fresh-clone check, with the dev-proxy fix `de68eb8`): `POST /requests/:id/decision` (one shard transaction: tenant lookup 404, self-review 403, conditional UPDATE on PENDING + expectedVersion, 409 on zero rows, decision audit event), `GET /admin/audit` (ADMIN only, signed cursor, request titles via same-shard join, batched actor names), `requireRole` helper; decision panel on the request detail page (disabled while sending, 409 reloads), admin Audit page and nav link; Playwright E2E timeout raised to 60 s for multi-user journeys (ADR-017).
 - Git: `main` tracks `origin` (https://github.com/tnvi55/team-request-portal.git). Identity `Tanvi <tanvi.jain@fiftyfivetech.io>`.
 
 ## Verified commands and results (2026-10-26 / 2026-10-27)
@@ -26,11 +26,13 @@ Implementation status: M0–M5 complete and verified
 | `pnpm audit --prod` | no known vulnerabilities |
 | `pnpm demo:up` + concurrent decisions script | approve on api-2 -> 409, reject on api-1 -> 200; final REJECTED v1; one decision audit event |
 | Fresh clone of m5-decisions from GitHub (2026-10-27) | install, verify (9 + 16 unit), build, `audit --prod` clean, integration 16/16 + 61/61, migrate, seed, db:verify: all pass |
-| E2E against the clone's `pnpm dev` | first run 4/5: Nginx 502 "no live upstreams" on `/auth/me` (dev proxy marked both host.docker.internal addresses down). Fixed `dev.conf` with `max_fails=0` (ADR-012 update); 300 readiness calls all 200, then 5/5 and 5/5; a third back-to-back run hit the documented 5-per-15-min login limit on manager@atlas (expected) |
+| E2E against the clone's `pnpm dev` | first run 4/5: Nginx 502 "no live upstreams" on `/auth/me` (dev proxy marked both host.docker.internal addresses down). Fixed `dev.conf` with `max_fails=0` (ADR-012 update); 300 readiness calls all 200, then 5/5 and 5/5; a third back-to-back run hit the documented 5-per-15-min login limit on manager@atlas (expected); after the window, one more dev run 4/5: the Next.js dev server stalled 56 s on a CSS chunk (499 in the proxy log, zero "no live upstreams") |
+| `pnpm demo:up` (production images, fix applied) + `pnpm test:e2e` | 5/5 in 23.7 s; `pnpm demo:down` back to dev mode |
 
 ## Not run / known gaps
 
 - Remove the body-parser/multer `minimumReleaseAgeExclude` after 2026-10-29; update fast-uri once 3.1.9 is 7 days old.
+- E2E against `pnpm dev` can still occasionally hit a Next.js dev-server stall (slow chunk compile); the production demo run is the reliable signal.
 - Carried over: X-Forwarded-For spoofable only by local processes calling 127.0.0.1:3001 directly; Argon2 not benchmarked; ESLint 9 unsupported upstream; readiness does not check migrations (M7).
 
 ## Blockers
