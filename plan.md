@@ -234,12 +234,14 @@ Learn: transactions, atomicity, optimistic concurrency (version check). Exercise
 
 ### M6 — company user administration
 
-- [ ] Implement company user list, account creation, role update, enable/disable.
-- [ ] New accounts receive mustChangePassword=true and a temporary password entered by the admin over the local form; never persist the plaintext password.
-- [ ] Enforce current ADMIN permissions on every write.
-- [ ] Guard the last active admin with a control-database transaction and organization-level row lock.
-- [ ] Write administrative audit events in the same control transaction.
-- [ ] Ensure one active membership maximum per user in this MVP.
+- [x] Implement company user list, account creation, role update, enable/disable.
+- [x] New accounts receive mustChangePassword=true and a temporary password entered by the admin over the local form; never persist the plaintext password.
+- [x] Enforce current ADMIN permissions on every write.
+- [x] Guard the last active admin with a control-database transaction and organization-level row lock.
+- [x] Write administrative audit events in the same control transaction.
+- [x] Ensure one active membership maximum per user in this MVP.
+
+Status: gate passed 2026-10-27 (15 admin integration tests: 403 for manager/employee on list/create/update, demoted session 403 and disabled session 401 on the next call, generic 409 for an email used in another company, cross-company 404, audit-fault rollback; 10 concurrent final-admin removal rounds per run, 30 over 3 runs, and a mutation check without FOR UPDATE that failed; Playwright create -> forced password change -> disable journey; demote on one demo API replica seen as 403 on both; one membership per user via the unique memberships.user_id).
 
 Gate: employee/manager admin calls are rejected. Existing sessions observe role/disable changes on the next protected call. Concurrent removal of the final admins cannot leave the organization without an active admin.
 

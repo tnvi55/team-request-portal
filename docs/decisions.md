@@ -169,6 +169,18 @@ Status: selected in M5.
 - **Roles:** checked in services from the freshly loaded membership (`requireRole`), not with a generic roles framework.
 Consequence: a reviewer who loses a race sees a 409 and reloads; nothing retries automatically.
 
+## ADR-018 — Company user administration and the last-admin guard
+
+Status: selected in M6.
+- **Pessimistic lock, not a conditional update:** the rule "at least one active admin" spans several rows, so no single-row `WHERE` can protect it. Every admin write (create, role change, enable/disable) runs in one control transaction that first takes `SELECT ... FROM organizations WHERE id = $org FOR UPDATE`. Writes of the same company queue on that row; other companies are unaffected. Only after the lock does the service read the target and count active admins (ADMIN role, active membership, active identity), so it sees what the previous writer committed.
+- **Caller re-checked inside the lock:** the session guard already re-reads the role, but another admin may demote the caller between the guard and the lock. The service re-reads the caller's membership after locking and returns 403 if they are no longer an active admin.
+- **Proof:** with `FOR UPDATE` removed, the race test (two admins demoting themselves or disabling each other at the same moment) failed: both requests succeeded and the company had no admin. With the lock, 30 rounds over three runs always left exactly one.
+- **Accounts:** the temporary password is hashed with Argon2id before the transaction (the lock is never held during hashing); user, membership and `MEMBER_CREATED` event commit together; `mustChangePassword` is set. Emails are globally unique: a duplicate in any company gets one generic 409 that never names the company.
+- **Disable revokes sessions:** disabling also increments the user's `sessionVersion`, so re-enabling later does not revive sessions issued before the disable.
+- **Audit:** `MEMBER_CREATED` (role), `MEMBER_ROLE_CHANGED` (from, to), `MEMBER_DISABLED`, `MEMBER_ENABLED` in `control_audit_events`, same transaction; a no-op change writes nothing. No password, email or free text in metadata.
+- **Error code:** `LAST_ADMIN` (409) lets the UI explain the refusal. Admins may change their own role or status when another active admin remains.
+Consequence: admin writes of one company are serialized (fine at MVP scale); there is no control-audit viewer yet (only request audit is in scope).
+
 ## Deferred questions / parking lot
 
 | ID | Question | Treatment |

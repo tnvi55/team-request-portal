@@ -48,7 +48,11 @@ Where: `create()` and `decide()` in [requests.service.ts](../apps/api/src/reques
 **Optimistic concurrency (version check).** Each request has a `version` number. A decision runs `UPDATE ... WHERE status='PENDING' AND version=<what the reviewer saw>`. If two managers click at the same time, only one UPDATE matches; the other gets 0 rows and the API returns 409.
 Where: `decide()` in requests.service.ts; [decisions.int-spec.ts](../apps/api/test/decisions.int-spec.ts) races approve against reject 10 times per run. Removing the WHERE condition made the race test fail. In the replica demo the two decisions landed on different API copies and still only one won.
 
-**Row lock (pessimistic concurrency).** `SELECT ... FOR UPDATE` makes other transactions wait. Used to stop two admins from demoting each other at once and leaving a company with no admin. Not built yet (M6).
+**Row lock (pessimistic concurrency).** `SELECT ... FOR UPDATE` makes other transactions wait. Used to stop two admins from demoting each other at once and leaving a company with no admin. A version check cannot do this: the rule ("at least one active admin") is about several rows, so every admin write of a company first locks that company's one `organizations` row and only then counts the admins.
+Where: `lockOrganizationAsAdmin()` in [users.service.ts](../apps/api/src/admin/users.service.ts); [admin-users.int-spec.ts](../apps/api/test/admin-users.int-spec.ts) races two admins 10 times per run. Removing `FOR UPDATE` made both requests succeed and left the company without an admin.
+
+**Authorization from current data.** The session only says who you are. Your role and active status are re-read from the database on every call, so an admin's change applies on your next click, on any API copy, with nothing to invalidate.
+Try: as an admin, set a manager to Employee in one browser; in the manager's browser, open Requests → Company: 403. Disabling also signs them out for good (their `sessionVersion` changes).
 
 **Cursor pagination.** Instead of "page 3" (OFFSET, which skips or repeats rows when data changes), the server returns an opaque cursor pointing at the last row seen. The next page continues after it. The cursor is signed so a caller cannot edit it to read another company's data.
 Where: [cursor.ts](../apps/api/src/common/cursor.ts), used in [requests.service.ts](../apps/api/src/requests/requests.service.ts). Try: copy a `nextCursor` and add `&status=PENDING`; the API answers 400 "Invalid cursor".

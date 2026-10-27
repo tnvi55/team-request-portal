@@ -258,6 +258,8 @@ Do not use a read-then-unconditional-update sequence. Row locking or conditional
 
 All relevant data is in control. Use a transaction and organization row lock before counting active admins and changing active/role fields. All paths that can remove an active admin must use this rule.
 
+Implemented in M6 in `apps/api/src/admin/users.service.ts` (ADR-018): every admin write locks the organization row, re-checks the caller is still an active admin, then changes rows and appends the control audit event in the same transaction. Disabling also increments `sessionVersion`. Verified with 10 concurrent removal rounds per test run, a mutation check without `FOR UPDATE`, and across both demo API replicas.
+
 No distributed transactions: an account/admin audit is in control; a request/business audit is in its tenant shard.
 
 ## 9. Pagination and cache behavior

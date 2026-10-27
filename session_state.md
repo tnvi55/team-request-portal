@@ -2,37 +2,33 @@
 
 Last updated: 2026-10-27
 Project: Team Request & Approval Portal
-Current milestone: M6 — company user administration (not started)
-Implementation status: M0–M5 complete and verified
+Current milestone: M7 — dashboard caching and operational behavior (not started)
+Implementation status: M0–M6 complete and verified
 
 ## Completed
 
-- M0–M4: workspace, infra, schemas, shard routing, RLS, seed, secure sessions, tenant-scoped requests (details in plan.md and the Learning Guide). M4 merged into `main` 2026-10-26.
-- Security fix before the M4 merge (commit e16ef90, ADR-013): the fresh-clone build stopped on Next.js's security gate. next/eslint-config-next 16.4.2, Prisma 7.10.1, pnpm overrides body-parser 2.4.0 + multer 2.5.0 with a temporary `minimumReleaseAgeExclude` (remove after 2026-10-29). `pnpm audit --prod`: no known vulnerabilities. Deferred: fast-uri 3.1.9 (dev-only, moderate/low) until it passes the 7-day rule.
-- M5 (merged into `main` 2026-10-27 after a fresh-clone check, with the dev-proxy fix `de68eb8`): `POST /requests/:id/decision` (one shard transaction: tenant lookup 404, self-review 403, conditional UPDATE on PENDING + expectedVersion, 409 on zero rows, decision audit event), `GET /admin/audit` (ADMIN only, signed cursor, request titles via same-shard join, batched actor names), `requireRole` helper; decision panel on the request detail page (disabled while sending, 409 reloads), admin Audit page and nav link; Playwright E2E timeout raised to 60 s for multi-user journeys (ADR-017).
+- M0–M5: workspace, infra, schemas, shard routing, RLS, seed, secure sessions, tenant-scoped requests, atomic decisions and request audit (details in plan.md and the Learning Guide). M5 merged into `main` 2026-10-27 together with the dev-proxy fix (`max_fails=0` in `infra/nginx/dev.conf`, ADR-012 update).
+- M6 (branch `m6-users`): `GET/POST /admin/users`, `PATCH /admin/users/:membershipId` in `apps/api/src/admin/`. Every write is one control transaction: organization row lock (`FOR UPDATE`), caller re-checked as active ADMIN, change, control audit event (`MEMBER_CREATED`, `MEMBER_ROLE_CHANGED`, `MEMBER_DISABLED`, `MEMBER_ENABLED`). Last active admin protected (409 `LAST_ADMIN`); disabling increments `sessionVersion`; duplicate email in any company is a generic 409. Web: `/admin/users` (create form, role select, enable/disable, Load more) and a Users nav link for admins (ADR-018).
+- Fixed an M3 UI bug found by the new E2E: after a password change the "Password changed" notice was lost because RequireAuth's redirect raced the page's own; the page now does a full load to `/login?changed=1`.
 - Git: `main` tracks `origin` (https://github.com/tnvi55/team-request-portal.git). Identity `Tanvi <tanvi.jain@fiftyfivetech.io>`.
 
-## Verified commands and results (2026-10-26 / 2026-10-27)
+## Verified commands and results (2026-10-27)
 
 | Command | Result |
 | --- | --- |
-| Fresh clone of m4-requests (before fix) | build failed: Next.js SecurityFatalError; integration hit a Windows DLL-init/fork failure (transient) |
-| `pnpm audit` (before fix) | 12 advisories: next 2 critical + 1 high, body-parser/multer high (prod); deepmerge-ts, mysql2, fast-uri (dev) |
-| Fresh clone of m4-requests (after fix) | install, verify, build (Next 16.4.2), 16+48 integration, migrate, seed, db:verify, 4/4 E2E against the clone: all pass; merged |
-| `pnpm --filter @trp/api test:integration` | 61/61 (13 new decision tests); decision suite green 4 runs in a row (40 races) |
-| Mutation: drop PENDING/version condition from the decision UPDATE | 3 tests failed (decide-once, stale version, race); restored |
-| `pnpm test:e2e` (with `pnpm dev`) | 5/5. An earlier run had 2 auth tests fail while the dev API restarted after the PC resumed (502 shown as generic errors); clean rerun all green |
-| `pnpm verify`, `pnpm build`, `pnpm test:integration`, `pnpm db:verify` | clean; unit 16 API + 9 database; 16/16 database + 61/61 API; all checks passed |
-| `pnpm audit --prod` | no known vulnerabilities |
-| `pnpm demo:up` + concurrent decisions script | approve on api-2 -> 409, reject on api-1 -> 200; final REJECTED v1; one decision audit event |
-| Fresh clone of m5-decisions from GitHub (2026-10-27) | install, verify (9 + 16 unit), build, `audit --prod` clean, integration 16/16 + 61/61, migrate, seed, db:verify: all pass |
-| E2E against the clone's `pnpm dev` | first run 4/5: Nginx 502 "no live upstreams" on `/auth/me` (dev proxy marked both host.docker.internal addresses down). Fixed `dev.conf` with `max_fails=0` (ADR-012 update); 300 readiness calls all 200, then 5/5 and 5/5; a third back-to-back run hit the documented 5-per-15-min login limit on manager@atlas (expected); after the window, one more dev run 4/5: the Next.js dev server stalled 56 s on a CSS chunk (499 in the proxy log, zero "no live upstreams") |
-| `pnpm demo:up` (production images, fix applied) + `pnpm test:e2e` | 5/5 in 23.7 s; `pnpm demo:down` back to dev mode |
+| `vitest run test/admin-users.int-spec.ts` (x3) | 15/15 each run; 10 concurrent final-admin removal rounds per run (self-demote and cross-disable) |
+| Mutation: remove `FOR UPDATE` from the organization lock | race test failed (both requests 200, no admin left); restored |
+| `pnpm verify` | clean; unit 16 API + 9 database |
+| `pnpm test:integration` | 16/16 database + 76/76 API (5 files) |
+| `pnpm test:e2e` (with `pnpm dev`) | 6/6, including create -> forced password change -> disable -> self-demote refused |
+| `pnpm db:verify` | all checks passed |
+| `pnpm demo:up` + replica script | demote via one API replica -> manager 403 on both replicas; restore via the other -> 200 on both; two simultaneous self-removals by the only admin -> 409 LAST_ADMIN from each replica |
 
 ## Not run / known gaps
 
+- No control-audit viewer (account events are stored and tested; only the request audit has a page, as scoped).
 - Remove the body-parser/multer `minimumReleaseAgeExclude` after 2026-10-29; update fast-uri once 3.1.9 is 7 days old.
-- E2E against `pnpm dev` can still occasionally hit a Next.js dev-server stall (slow chunk compile); the production demo run is the reliable signal.
+- E2E against `pnpm dev` can occasionally hit a Next.js dev-server stall; the production demo run is the reliable signal.
 - Carried over: X-Forwarded-For spoofable only by local processes calling 127.0.0.1:3001 directly; Argon2 not benchmarked; ESLint 9 unsupported upstream; readiness does not check migrations (M7).
 
 ## Blockers
@@ -41,11 +37,11 @@ None.
 
 ## Learning Guide
 
-Long-form guide for the learner (Claude Doc): https://claude.ai/artifact/7aignW34LB1LeGeG37aFYS. Covers M0–M5. Update it after each milestone.
+Long-form guide for the learner (Claude Doc): https://claude.ai/artifact/7aignW34LB1LeGeG37aFYS. Covers M0–M6. Update it after each milestone.
 
 ## Next task
 
-M6 from plan.md: company user list, account creation (temporary password, mustChangePassword, user + membership + control audit in one control transaction), role change and enable/disable with an organization row lock that protects the last active admin, current-ADMIN checks on every write; tests for role checks, session effects, and concurrent removal of the final admins.
+M7 from plan.md: Redis dashboard cache under separate tenant/scope keys (5 s TTL, invalidated after committed request writes, DB fallback when Redis fails), shared authenticated API limit (120/min per user/tenant), fail-closed 503 for session/limiter errors, request IDs and safe instance markers, health checks and pool cleanup; tests for hits, scope isolation, expiry and post-write invalidation.
 
 ## Handoff discipline
 
