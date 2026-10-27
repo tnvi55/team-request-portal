@@ -64,12 +64,15 @@ export function createRequestContext(
     if (config.LOG_REQUESTS) {
       res.on('finish', () => {
         // Path only (no query string, body, cookies, or user data); ids in the path are UUIDs.
+        const path = req.originalUrl.split('?')[0]!;
+        // Container health probes run every few seconds: log them only when they fail.
+        if (path.startsWith('/api/v1/health/') && res.statusCode < 400) return;
         log.log(
           JSON.stringify({
             requestId: req.requestId,
             instance: config.INSTANCE_ID,
             method: req.method,
-            path: req.originalUrl.split('?')[0],
+            path,
             status: res.statusCode,
             durationMs: Math.round(performance.now() - started),
           }),

@@ -1,4 +1,4 @@
-import { Inject, Injectable, type OnApplicationShutdown } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnApplicationShutdown } from '@nestjs/common';
 import { createControlClient, ShardRegistry, type ControlClient } from '@trp/database';
 import { APP_CONFIG, type AppConfig } from '../config/env.js';
 
@@ -12,6 +12,7 @@ const POOL_MAX = 5;
  */
 @Injectable()
 export class DatabaseService implements OnApplicationShutdown {
+  private readonly logger = new Logger(DatabaseService.name);
   readonly control: ControlClient;
   readonly shards: ShardRegistry;
 
@@ -23,7 +24,9 @@ export class DatabaseService implements OnApplicationShutdown {
     );
   }
 
-  async onApplicationShutdown(): Promise<void> {
+  /** Runs after the HTTP server stopped accepting requests (SIGTERM from `docker stop`, Ctrl+C). */
+  async onApplicationShutdown(signal?: string): Promise<void> {
     await Promise.allSettled([this.control.$disconnect(), this.shards.disconnectAll()]);
+    this.logger.log(`Database pools closed${signal ? ` (${signal})` : ''}`);
   }
 }

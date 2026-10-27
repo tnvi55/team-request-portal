@@ -27,6 +27,7 @@
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:unit",
     "secrets:scan": "node scripts/secrets-scan.mjs",
     "demo:up": "docker compose --env-file .env -f infra/compose.yaml -f infra/compose.demo.yaml up -d --build --wait",
+    "demo:verify": "node scripts/demo-verify.mjs",
     "demo:down": "docker compose --env-file .env -f infra/compose.yaml -f infra/compose.demo.yaml rm --stop --force api-1 api-2 web-1 web-2 && docker compose --env-file .env -f infra/compose.yaml up -d --wait proxy"
   },
   "devDependencies": {

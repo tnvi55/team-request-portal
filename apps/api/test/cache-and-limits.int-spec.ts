@@ -262,6 +262,11 @@ describe('observability', () => {
       });
       expect(typeof entry.durationMs).toBe('number');
       expect(lines[0]).not.toMatch(/scope=|cookie|trp\.sid|password/i);
+
+      // Successful health probes (Docker polls them every few seconds) are not logged.
+      const probe = await request(logged.app.getHttpServer()).get('/api/v1/health/live');
+      const probeId = probe.headers['x-request-id'] as string;
+      expect(spy.mock.calls.some(([message]) => String(message).includes(probeId))).toBe(false);
     } finally {
       spy.mockRestore();
       await logged.close();
