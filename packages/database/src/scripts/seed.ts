@@ -1,5 +1,7 @@
 // pnpm db:seed — idempotent synthetic seed for local development databases.
-// - Organizations, users, memberships, directory entries: created only if missing (never overwritten).
+// - Organizations, users, memberships, directory entries, projects: created only if missing.
+// - Profiles (designation, project) are filled only while still empty, and pre-M9 placeholder names
+//   ("Atlas Manager") become real names once; later edits by an admin are never overwritten.
 // - Requests and audit events: deterministic ids + skipDuplicates, so a second run inserts nothing.
 // - Demo passwords: random, stored only in the Git-ignored .local/demo-credentials.json.
 // Runs as trp_migrator. Tenant rows are written inside withTenant, so RLS checks every insert.
@@ -19,6 +21,7 @@ import {
   planRequests,
   seedEmail,
   type SeedOrganization,
+  type SeedUserKey,
 } from './seed-data.js';
 import { assertLocal, databaseName, loadRootEnv, repoRoot, targets } from './support.js';
 
@@ -84,7 +87,7 @@ async function seedControl(
       const u = await tx.user.create({
         data: {
           normalizedEmail: email,
-          displayName: `${org.name.split(' ')[0]} ${user.displayName}`,
+          displayName: org.people[user.key].displayName,
           passwordHash,
         },
       });
@@ -106,6 +109,61 @@ async function seedControl(
     created += 1;
   }
   return { organizationId: organization.id, userIds, created, missingPasswords };
+}
+
+/** Projects (each with its own manager) and seeded people's designations. Returns profiles changed. */
+async function seedProfiles(
+  control: ControlClient,
+  org: SeedOrganization,
+  organizationId: string,
+  userIds: Record<string, string>,
+): Promise<number> {
+  const memberships = await control.membership.findMany({
+    where: { organizationId, userId: { in: Object.values(userIds) } },
+    include: { user: { select: { displayName: true } } },
+  });
+  const membershipOf = (key: SeedUserKey) => memberships.find((m) => m.userId === userIds[key])!;
+
+  const projectIds: Record<string, string> = {};
+  for (const project of org.projects) {
+    const existing = await control.project.findUnique({
+      where: { organizationId_name: { organizationId, name: project.name } },
+    });
+    projectIds[project.name] = (
+      existing ??
+      (await control.project.create({
+        data: {
+          organizationId,
+          name: project.name,
+          managerMembershipId: membershipOf(project.managerKey).id,
+        },
+      }))
+    ).id;
+  }
+
+  let changed = 0;
+  for (const user of USERS) {
+    const person = org.people[user.key];
+    const membership = membershipOf(user.key);
+    const legacyName = `${org.name.split(' ')[0]} ${user.legacyName}`;
+    if (membership.user.displayName === legacyName) {
+      await control.user.update({
+        where: { id: membership.userId },
+        data: { displayName: person.displayName },
+      });
+    }
+    if (membership.jobTitle === null) {
+      await control.membership.update({
+        where: { id: membership.id },
+        data: {
+          jobTitle: person.jobTitle,
+          projectId: person.project ? projectIds[person.project]! : null,
+        },
+      });
+    }
+    if (membership.user.displayName === legacyName || membership.jobTitle === null) changed += 1;
+  }
+  return changed;
 }
 
 async function main(): Promise<void> {
@@ -130,6 +188,7 @@ async function main(): Promise<void> {
         org,
         credentials,
       );
+      const profiles = await seedProfiles(control, org, organizationId, userIds);
       // Route exactly as the API will: through the directory, never from the seed definition.
       const shardKey = await resolveShardKey(control, organizationId);
 
@@ -187,7 +246,7 @@ async function main(): Promise<void> {
 
       console.log(
         `${org.slug.padEnd(6)} -> ${shardKey} (${databaseName(urls.shards[shardKey].migration)}): ` +
-          `${created} users created, ${inserted.requests} requests and ${inserted.events} audit events inserted`,
+          `${created} users created, ${profiles} profiles updated, ${inserted.requests} requests and ${inserted.events} audit events inserted`,
       );
       if (missingPasswords.length > 0) {
         console.warn(

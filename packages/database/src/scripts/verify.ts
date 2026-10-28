@@ -54,7 +54,16 @@ async function checkHistoryReadOnly(c: pg.Client, label: string): Promise<void> 
 }
 
 console.log(`Target: ${target}\n`);
-await withClient(urls.control.migration, (c) => checkHistoryReadOnly(c, 'control'));
+await withClient(urls.control.migration, async (c) => {
+  await checkHistoryReadOnly(c, 'control');
+  // M9: projects are created by operators/seed; the API may only read them.
+  const r = await c.query<{ privilege_type: string }>(
+    `SELECT privilege_type FROM information_schema.role_table_grants
+     WHERE grantee = 'trp_runtime' AND table_name = 'projects' ORDER BY 1`,
+  );
+  const grants = r.rows.map((row) => row.privilege_type).join(',');
+  check(grants === 'SELECT', `control: runtime can only read projects (${grants || 'none'})`);
+});
 
 // --- Directory --------------------------------------------------------------
 const directory = await withClient(urls.control.migration, async (c) => {

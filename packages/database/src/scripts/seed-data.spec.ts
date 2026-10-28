@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { RequestStatus } from '../generated/tenant/enums.js';
-import { REQUESTS_PER_ORGANIZATION, deterministicUuid, planRequests } from './seed-data.js';
+import {
+  ORGANIZATIONS,
+  REQUESTS_PER_ORGANIZATION,
+  USERS,
+  deterministicUuid,
+  planRequests,
+} from './seed-data.js';
 
 describe('seed plan', () => {
   const plan = planRequests();
@@ -39,5 +45,32 @@ describe('seed plan', () => {
     expect(deterministicUuid('x')).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
+  });
+});
+
+describe('seed people and projects', () => {
+  it('gives every company several projects, each managed by a MANAGER', () => {
+    for (const org of ORGANIZATIONS) {
+      expect(org.projects.length).toBeGreaterThanOrEqual(2);
+      const managers = new Set(org.projects.map((p) => p.managerKey));
+      expect(managers.size).toBe(org.projects.length); // a different manager per project
+      for (const key of managers) {
+        expect(USERS.find((u) => u.key === key)?.role).toBe('MANAGER');
+      }
+    }
+  });
+
+  it('assigns employees only to projects of their own company, with unique real names', () => {
+    for (const org of ORGANIZATIONS) {
+      const projectNames = new Set(org.projects.map((p) => p.name));
+      for (const user of USERS) {
+        const person = org.people[user.key];
+        if (person.project) expect(projectNames.has(person.project)).toBe(true);
+        if (user.role === 'EMPLOYEE') expect(person.project).not.toBeNull();
+        expect(person.jobTitle.length).toBeGreaterThanOrEqual(2);
+      }
+    }
+    const names = ORGANIZATIONS.flatMap((o) => USERS.map((u) => o.people[u.key].displayName));
+    expect(new Set(names).size).toBe(names.length);
   });
 });

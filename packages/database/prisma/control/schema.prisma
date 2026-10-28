@@ -56,6 +56,7 @@ model Organization {
   createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
   memberships Membership[]
+  projects    Project[]
   directory   TenantDirectory?
   auditEvents ControlAuditEvent[]
 
@@ -64,18 +65,45 @@ model Organization {
 
 /// A user's role inside one organization. MVP: at most one membership per user (userId unique).
 model Membership {
-  id             String         @id @default(uuid(7)) @db.Uuid
-  userId         String         @unique @map("user_id") @db.Uuid
-  organizationId String         @map("organization_id") @db.Uuid
-  role           MembershipRole
-  isActive       Boolean        @default(true) @map("is_active")
-  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
-  user           User           @relation(fields: [userId], references: [id], onDelete: Restrict)
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  id              String         @id @default(uuid(7)) @db.Uuid
+  userId          String         @unique @map("user_id") @db.Uuid
+  organizationId  String         @map("organization_id") @db.Uuid
+  role            MembershipRole
+  /// Designation shown under the person's name, e.g. "QA Engineer". Display only: never a permission.
+  jobTitle        String?        @map("job_title") @db.VarChar(80)
+  /// The person's current project; its manager is their current manager. Same organization only.
+  projectId       String?        @map("project_id") @db.Uuid
+  isActive        Boolean        @default(true) @map("is_active")
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user            User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  project         Project?       @relation("ProjectMembers", fields: [projectId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  managedProjects Project[]      @relation("ProjectManager")
 
+  /// Target of the composite foreign key from projects: a project's manager is in its organization.
+  @@unique([id, organizationId])
   @@index([organizationId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([projectId])
   @@map("memberships")
+}
+
+/// A team inside one organization. A company can run many projects, each with its own manager.
+model Project {
+  id                  String       @id @default(uuid(7)) @db.Uuid
+  organizationId      String       @map("organization_id") @db.Uuid
+  name                String       @db.VarChar(80)
+  managerMembershipId String?      @map("manager_membership_id") @db.Uuid
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  manager             Membership?  @relation("ProjectManager", fields: [managerMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  members             Membership[] @relation("ProjectMembers")
+
+  /// Target of the composite foreign key from memberships: members join projects of their own company.
+  @@unique([id, organizationId])
+  @@unique([organizationId, name])
+  @@index([managerMembershipId])
+  @@map("projects")
 }
 
 /// Directory-based sharding: which tenant shard holds this organization's business records.

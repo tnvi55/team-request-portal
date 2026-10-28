@@ -60,7 +60,7 @@ export async function loadTenantFixture(): Promise<Record<keyof typeof EMAIL, st
   try {
     const [row] = await control.$queryRaw<{ db: string }[]>`SELECT current_database() AS db`;
     if (!row?.db.endsWith('_test')) throw new Error('fixture reset refused: not a _test database');
-    await control.$executeRaw`TRUNCATE control_audit_events, memberships, tenant_directory, users, organizations`;
+    await control.$executeRaw`TRUNCATE control_audit_events, projects, memberships, tenant_directory, users, organizations`;
 
     for (const [slug, id] of Object.entries(ORGS)) {
       await control.organization.create({ data: { id, slug, name: `${slug} test co` } });

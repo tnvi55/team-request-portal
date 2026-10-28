@@ -4,31 +4,91 @@ import { createHash } from 'node:crypto';
 import { MembershipRole, ShardKey } from '../generated/control/enums.js';
 import { RequestCategory, RequestStatus } from '../generated/tenant/enums.js';
 
+export type SeedUserKey = 'admin' | 'manager' | 'manager2' | 'employee' | 'employee2';
+
 export interface SeedUser {
-  key: 'admin' | 'manager' | 'employee' | 'employee2';
+  key: SeedUserKey;
   role: MembershipRole;
+  /** Display name suffix used by seeds before M9 ("Atlas Manager"); such names are upgraded. */
+  legacyName: string;
+}
+
+/** A seeded person's profile: a realistic name, designation, and current project. */
+export interface SeedPerson {
   displayName: string;
+  jobTitle: string;
+  project: string | null;
 }
 
 export interface SeedOrganization {
   slug: string;
   name: string;
   shardKey: ShardKey;
+  /** Each project has its own manager: a company can have several managers. */
+  projects: { name: string; managerKey: SeedUserKey }[];
+  people: Record<SeedUserKey, SeedPerson>;
 }
 
 // Atlas and Cedar share shard A (tests same-shard isolation); Birch alone on shard B (cross-shard routing).
 export const ORGANIZATIONS: SeedOrganization[] = [
-  { slug: 'atlas', name: 'Atlas Robotics', shardKey: ShardKey.SHARD_A },
-  { slug: 'cedar', name: 'Cedar Health', shardKey: ShardKey.SHARD_A },
-  { slug: 'birch', name: 'Birch Logistics', shardKey: ShardKey.SHARD_B },
+  {
+    slug: 'atlas',
+    name: 'Atlas Robotics',
+    shardKey: ShardKey.SHARD_A,
+    projects: [
+      { name: 'Warehouse Arm v2', managerKey: 'manager' },
+      { name: 'Vision Platform', managerKey: 'manager2' },
+    ],
+    people: {
+      admin: { displayName: 'Meera Kapoor', jobTitle: 'Head of Operations', project: null },
+      manager: { displayName: 'Arjun Rao', jobTitle: 'Engineering Manager', project: null },
+      manager2: { displayName: 'Sofia Fernandes', jobTitle: 'Product Manager', project: null },
+      employee: { displayName: 'Rohan Gupta', jobTitle: 'Robotics Engineer', project: 'Warehouse Arm v2' },
+      employee2: { displayName: 'Neha Singh', jobTitle: 'QA Engineer', project: 'Vision Platform' },
+    },
+  },
+  {
+    slug: 'cedar',
+    name: 'Cedar Health',
+    shardKey: ShardKey.SHARD_A,
+    projects: [
+      { name: 'Patient Portal', managerKey: 'manager' },
+      { name: 'Lab Integrations', managerKey: 'manager2' },
+    ],
+    people: {
+      admin: { displayName: 'Kavya Nair', jobTitle: 'HR and Admin Lead', project: null },
+      manager: { displayName: 'Vikram Menon', jobTitle: 'Delivery Manager', project: null },
+      manager2: { displayName: 'Aisha Khan', jobTitle: 'Data Team Lead', project: null },
+      employee: { displayName: 'Ishaan Bose', jobTitle: 'Frontend Developer', project: 'Patient Portal' },
+      employee2: { displayName: 'Tara Joshi', jobTitle: 'Data Analyst', project: 'Lab Integrations' },
+    },
+  },
+  {
+    slug: 'birch',
+    name: 'Birch Logistics',
+    shardKey: ShardKey.SHARD_B,
+    projects: [
+      { name: 'Route Optimizer', managerKey: 'manager' },
+      { name: 'Fleet Tracking', managerKey: 'manager2' },
+    ],
+    people: {
+      admin: { displayName: "Daniel D'Souza", jobTitle: 'Operations Director', project: null },
+      manager: { displayName: 'Priya Reddy', jobTitle: 'Project Manager', project: null },
+      manager2: { displayName: 'Sameer Patel', jobTitle: 'Engineering Manager', project: null },
+      employee: { displayName: 'Ananya Iyer', jobTitle: 'Backend Developer', project: 'Route Optimizer' },
+      employee2: { displayName: 'Kabir Malhotra', jobTitle: 'Support Engineer', project: 'Fleet Tracking' },
+    },
+  },
 ];
 
 export const USERS: SeedUser[] = [
-  { key: 'admin', role: MembershipRole.ADMIN, displayName: 'Admin' },
-  { key: 'manager', role: MembershipRole.MANAGER, displayName: 'Manager' },
-  { key: 'employee', role: MembershipRole.EMPLOYEE, displayName: 'Employee' },
+  { key: 'admin', role: MembershipRole.ADMIN, legacyName: 'Admin' },
+  { key: 'manager', role: MembershipRole.MANAGER, legacyName: 'Manager' },
+  // A second manager: each project has its own manager.
+  { key: 'manager2', role: MembershipRole.MANAGER, legacyName: 'Second Manager' },
+  { key: 'employee', role: MembershipRole.EMPLOYEE, legacyName: 'Employee' },
   // A second employee so "cannot read a coworker's request" can be demonstrated.
-  { key: 'employee2', role: MembershipRole.EMPLOYEE, displayName: 'Second Employee' },
+  { key: 'employee2', role: MembershipRole.EMPLOYEE, legacyName: 'Second Employee' },
 ];
 
 /** `.example` is a reserved domain: these addresses can never reach a real mailbox. */
@@ -64,8 +124,8 @@ export interface PlannedRequest {
   description: string;
   category: RequestCategory;
   status: RequestStatus;
-  submitterKey: SeedUser['key'];
-  reviewerKey: SeedUser['key'] | null;
+  submitterKey: SeedUserKey;
+  reviewerKey: SeedUserKey | null;
   reviewComment: string | null;
   createdAt: Date;
   reviewedAt: Date | null;
@@ -80,7 +140,7 @@ const HOUR = 3_600_000;
  * shares its predecessor's timestamp so pagination tie-breaking (createdAt, id) is exercised.
  */
 export function planRequests(): PlannedRequest[] {
-  const submitters: SeedUser['key'][] = ['employee', 'employee2', 'manager', 'admin'];
+  const submitters: SeedUserKey[] = ['employee', 'employee2', 'manager', 'admin'];
   return Array.from({ length: REQUESTS_PER_ORGANIZATION }, (_, i) => {
     const n = i + 1;
     const item = ITEMS[i % ITEMS.length]!;

@@ -25,7 +25,7 @@ export async function loadAuthFixture(): Promise<void> {
     const [row] = await control.$queryRaw<{ db: string }[]>`SELECT current_database() AS db`;
     const db = row?.db ?? '';
     if (!db.endsWith('_test')) throw new Error('fixture reset refused: not a _test database');
-    await control.$executeRaw`TRUNCATE control_audit_events, memberships, tenant_directory, users, organizations`;
+    await control.$executeRaw`TRUNCATE control_audit_events, projects, memberships, tenant_directory, users, organizations`;
     await control.organization.create({ data: { id: ORG_ID, slug: 'atlas', name: 'Atlas Robotics' } });
     await control.organization.create({
       data: { id: DORMANT_ORG_ID, slug: 'dormant', name: 'Dormant Co', isActive: false },

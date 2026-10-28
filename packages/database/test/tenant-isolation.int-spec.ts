@@ -55,7 +55,7 @@ async function loadFixture(): Promise<void> {
   };
   await reset(
     urls.control.migration,
-    'TRUNCATE control_audit_events, memberships, tenant_directory, users, organizations',
+    'TRUNCATE control_audit_events, projects, memberships, tenant_directory, users, organizations',
   );
   for (const key of Object.values(ShardKey)) {
     await reset(urls.shards[key].migration, 'TRUNCATE request_audit_events, requests');
