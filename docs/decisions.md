@@ -127,6 +127,8 @@ Applied 2026-10-26: the M4 pre-merge check found `next build` refusing to finish
 
 Applied 2026-10-27: the M8 pre-merge check found GHSA-6pq8-jhm2-2vcw (moderate DoS in `qs.stringify` with `arrayFormat: 'comma'`; qs 6.16.0 via express). The app never calls `qs.stringify` (Express only parses query strings), so exposure is unlikely, but the gate stays strict: pnpm `overrides` qs 6.16.1, published 2026-10-14, so no release-age exclusion was needed. `pnpm audit --prod` is clean again; the full audit lists only the deferred dev-only fast-uri findings.
 
+Applied 2026-10-28: fast-uri 3.1.9 (published 2026-10-19) now passes the 7-day rule and was taken with `pnpm update --recursive --depth Infinity fast-uri` (a lockfile-only change inside the existing range, no override). `pnpm audit` (all dependencies) reports no known vulnerabilities. Removing the body-parser/multer exclusion was tried the same day: pnpm refused the lockfile (`ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`), so the exclusion stays until 2026-10-29 11:58 UTC.
+
 ## ADR-014 — Migration workflow, database roles, and test databases
 
 Status: selected in M2.

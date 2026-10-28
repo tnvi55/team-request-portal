@@ -1,6 +1,6 @@
 # Session state
 
-Last updated: 2026-10-27
+Last updated: 2026-10-28
 Project: Team Request & Approval Portal
 Current milestone: none. The planned MVP (M0–M8) is complete.
 Implementation status: M0–M8 complete and verified
@@ -33,7 +33,7 @@ Implementation status: M0–M8 complete and verified
 
 - The walkthrough was rehearsed with commands and scripts, not presented live to the mentor.
 - No control-audit viewer (account events are stored and tested).
-- Remove the body-parser/multer `minimumReleaseAgeExclude` after 2026-10-29; update fast-uri once 3.1.9 is 7 days old.
+- Remove the body-parser/multer `minimumReleaseAgeExclude` after 2026-10-29 11:58 UTC (tried 2026-10-28: pnpm refuses the lockfile until then). fast-uri was updated to 3.1.9 on 2026-10-28; `pnpm audit` is fully clean.
 - E2E against `pnpm dev` can occasionally hit a Next.js dev-server stall; the production demo run is the reliable signal.
 - Carried over: X-Forwarded-For spoofable only by local processes calling 127.0.0.1:3001 directly; Argon2 not benchmarked; ESLint 9 unsupported upstream.
 
@@ -47,7 +47,7 @@ Long-form guide for the learner (Claude Doc): https://claude.ai/artifact/7aignW3
 
 ## Next task
 
-No planned milestone remains. Possible follow-ups: present the demo to the mentor (docs/demo.md), the two dependency clean-ups above, and any new scope only after a decision recorded in plan.md section 9.
+No planned milestone remains. Possible follow-ups: present the demo to the mentor (docs/demo.md), remove the body-parser/multer exclusion after 2026-10-29 11:58 UTC, and any new scope only after a decision recorded in plan.md section 9.
 
 ## Handoff discipline
 

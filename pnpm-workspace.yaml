@@ -18,8 +18,9 @@ allowBuilds:
 saveExact: true
 
 # Security fixes (2026-10-26, see ADR-013). body-parser 2.4.0 and multer 2.5.0 patch high-severity
-# advisories (GHSA-27r3-jxmh-p828, GHSA-q7qp-rjg7-q26m) but were published 2026-10-22, inside the
-# 7-day window; Nest still pins multer 2.4.0. Remove these two exclusions after 2026-10-29.
+# advisories (GHSA-27r3-jxmh-p828, GHSA-q7qp-rjg7-q26m) but were published 2026-10-22 11:36 and
+# 11:57 UTC, inside the 7-day window; Nest still pins multer 2.4.0. pnpm refuses the lockfile
+# without these exclusions until 2026-10-29 11:58 UTC (checked 2026-10-28); remove them after that.
 minimumReleaseAgeExclude:
   - body-parser
   - multer
