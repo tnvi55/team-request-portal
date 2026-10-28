@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-28
 Project: Team Request & Approval Portal
-Current milestone: M9 — usability (people, projects, polish) complete
+Current milestone: none; M9 complete, plus a documentation pass for the AI hackathon submission (2026-10-28)
 Implementation status: M0–M8 MVP complete; M9 user-requested improvements complete and verified
 
 ## Completed
@@ -18,6 +18,12 @@ Implementation status: M0–M8 MVP complete; M9 user-requested improvements comp
     - Dashboard: profile card, coloured tiles, quick-action buttons by role.
     - Users page: designation, project and manager columns, project cards.
     - Show/Hide toggle on all password fields; attempts-left message after a wrong password.
+- Hackathon documentation pass (branch `docs-hackathon`, 2026-10-28):
+  - Requirements are stated as project requirements (no reviewer names); A-01 and Q-01 resolved in decisions.md.
+  - Stale statements corrected: plan.md title and status, architecture.md header, modules, ER diagram (Project), health access, OpenAPI (not built; zod contracts instead), ADR-010 logging line (no pino; JSON lines from request-context.ts), learning.md milestone wording.
+  - New: docs/roadmap.md (future scope), docs/ai-workflow.md (AI development approach), plan.md section 10, README rewritten for evaluators with screenshots in docs/images (Cedar Health data).
+  - Learning Guide: reviewer mentions replaced, status now M0 to M9.
+  - Outside the repo: C:myDatahackathon-submission (form answers, architecture for the form, demo video).
 - Git: `main` tracks `origin` (https://github.com/tnvi55/team-request-portal.git). Identity `Tanvi <tanvi.jain@fiftyfivetech.io>`.
 
 ## Verified commands and results (2026-10-28)
@@ -33,6 +39,9 @@ Implementation status: M0–M8 MVP complete; M9 user-requested improvements comp
 | Screenshots (Playwright) of login, dashboards (admin, manager, mobile employee), Users, status, request detail | reviewed |
 
 ## Not run / known gaps
+
+- The GitHub repository is private (anonymous request returns 404); it must be made public or shared with the evaluators.
+- Local dev data now also holds the demo-video requests ("27-inch monitor for CAD reviews", "27-inch 4K monitor for CAD reviews" in Atlas, "27-inch 4K monitor for design reviews" in Cedar) and earlier E2E users/requests in Atlas.
 
 - The body-parser/multer `minimumReleaseAgeExclude` can be removed after 2026-10-29 11:58 UTC.
 - Projects can't be created or renamed in the UI yet (seed/operators only; ADR-021).

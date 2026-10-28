@@ -1,6 +1,6 @@
 # Architecture decisions and assumptions
 
-Version: 1.0 | 2026-10-19
+Version: 1.1 | 2026-10-19, updated 2026-10-28
 
 This file owns decision rationale. plan.md owns scope and task status; architecture.md owns implementation mechanics.
 
@@ -20,10 +20,10 @@ Consequence: more than one process, but no microservices or hosted runtime depen
 
 ## ADR-003 — Central identity pool and separate membership
 
-Status: selected implementation; terminology assumption A-01 remains for mentor review.
+Status: selected and implemented; the "user pool" interpretation is recorded as A-01.
 NestJS handles password sign-in using central local identity records. Membership supplies organization-scoped permissions.
 Reason: it teaches authentication without requiring a hosted service or separate identity platform.
-Consequence: this is not an OIDC server, Cognito-compatible API, or standalone IAM product. If the mentor means one of those, revisit auth before M3; do not claim equivalence.
+Consequence: this is not an OIDC server, Cognito-compatible API, or standalone IAM product; do not claim equivalence. Single sign-on through an external provider is future scope (docs/roadmap.md) and would sit in front of the same membership model.
 
 ## ADR-004 — Directory-based horizontal sharding
 
@@ -95,11 +95,11 @@ Planned for later milestones (versions re-checked when installed, same 7-day rul
 - M2 (installed): Prisma ORM **7.10.0**, upgraded to **7.10.1** on 2026-10-26 for dependency advisories (see ADR-013) (`prisma`, `@prisma/client`, `@prisma/adapter-pg`). 7.10.1 was blocked by the 7-day rule (published 2026-10-15). npm's `latest` tag points to 8.0.0-rc.23, a release candidate; 7.x is pinned explicitly.
 - M2 (installed): **@node-rs/argon2 2.2.2** for Argon2id instead of `argon2`: maintained, defaults to Argon2id, prebuilt binaries with no install script (fits `allowBuilds`). Parameters: 19 MiB, t=2, p=1 (`packages/database/src/passwords.ts`).
 - M3 (installed): express-session 1.19.0 + connect-redis 10.0.0 (Redis session store), @playwright/test 1.64.1 (Chromium only), zod schemas in @trp/contracts validated by Nest's `StandardSchemaValidationPipe` (ADR-015) instead of the planned class-validator/class-transformer.
-- M7: nestjs-pino 5.x / pino-http for structured logs with request IDs.
+- M7 (as built): no logging library was added. The request-context middleware (`apps/api/src/common/request-context.ts`) writes one JSON line per request with the request ID, which met the need without another dependency.
 
 Install-script policy: pnpm runs dependency install scripts only when listed in `allowBuilds` (`@swc/core`, `prisma`, `@prisma/engines` allowed; `unrs-resolver` denied because pnpm already installs its native binary).
 
-Follow-up (found 2026-10-21): npm now marks ESLint 9.39.5 as unsupported. ESLint is a development tool only, and ESLint 10 still breaks eslint-config-next's plugins. Re-check before M8; options are ESLint 10 once Next's plugins support it, or configuring the Next/React plugins directly.
+Follow-up (found 2026-10-21): npm now marks ESLint 9.39.5 as unsupported. ESLint is a development tool only, and ESLint 10 still breaks eslint-config-next's plugins. Re-checked at M8 and M9: still the newest ESLint that Next's plugins accept, so it stays (a development tool only, listed as a known gap). Options are ESLint 10 once Next's plugins support it, or configuring the Next/React plugins directly.
 
 ## ADR-011 — Lightweight Claude project context
 
@@ -223,9 +223,9 @@ Consequence: one extra control query on `/auth/me`, login and request details (t
 
 | ID | Question | Treatment |
 | --- | --- | --- |
-| A-01 | Does the mentor mean a standalone identity provider by "user pool"? | Proceed with chosen interpretation; review before auth implementation if mentor clarifies |
+| A-01 | Does "user pool" mean a standalone identity provider? | Resolved: an identity store inside the NestJS API (ADR-003). External OIDC/SAML single sign-on is future scope |
 | A-02 | Are locally running open-source packages/containers permitted? | Assumed yes; no hosted runtime services |
-| Q-01 | What is the final deadline? | Not provided; use ordered gates, not invented delivery dates |
+| Q-01 | What is the final deadline? | Resolved: work followed ordered gates; M0–M9 were complete on 2026-10-28 for the company AI hackathon submission |
 | Q-02 | Which Git host/remote and work identity? | Identity confirmed by user in M0: global `Tanvi <tanvi.jain@fiftyfivetech.io>`. Remote `origin` = https://github.com/tnvi55/team-request-portal.git (provided by the user 2026-10-21); push the user-selected branch only, never force-push |
 | Q-03 | Which OS shell will be used? | Resolved: Windows PowerShell + Docker Desktop (ADR-012) |
 

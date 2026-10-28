@@ -1,6 +1,6 @@
 # Technical architecture
 
-Version: 1.0 | 2026-10-19 | Design target; application not implemented
+Version: 1.1 | 2026-10-19, updated 2026-10-28 | Implemented and verified through M9
 
 Product scope and milestone status are owned by [plan.md](../plan.md). This document owns technical mechanics. [decisions.md](decisions.md) records rationale and unresolved assumptions.
 
@@ -28,7 +28,7 @@ The diagram includes replica capability. Development starts with one web/API pai
 - PostgreSQL/Redis stay on the private Compose network; any optional inspection port binds to 127.0.0.1.
 - Start with one Redis instance and three PostgreSQL containers with separate named volumes.
 - Application flow requires no internet service after dependencies/images are installed.
-- Development apps may run in Compose with source mounts and container-owned dependencies. Document the exact Windows PowerShell or WSL2 workflow that was tested.
+- In development, Next.js and NestJS run on the Windows host (`pnpm dev`) and the Nginx container reaches them through `host.docker.internal` (ADR-012).
 - Production-build demo uses named web-1/web-2 and api-1/api-2 services, or an equivalently explicit setup with verifiable instance IDs.
 
 ## 2. Code organization
@@ -41,9 +41,10 @@ The diagram includes replica capability. Development starts with one web/API pai
 | packages/contracts | Browser-safe API response types, enums, and shared constants |
 | infra | Compose files, Nginx config, and PostgreSQL role initialization |
 | scripts | Cross-platform local setup, migration, seed, and demo orchestration |
-| docs | Architecture, decisions, demo, and references |
+| e2e | Playwright browser journeys against the app on :8080 |
+| docs | Architecture, decisions, demo, learning notes, roadmap, AI workflow, and references |
 
-Suggested Nest modules: Config, Database, Auth, Tenancy, Users, Requests, Audit, Dashboard, Health. Rate limiting and request logging are shared infrastructure.
+Nest modules (`apps/api/src`): Config, Database, Redis (shared client and rate limiter), Auth (sessions, CSRF, guards, login limits), Tenant (tenant context and the scoped shard transaction), People (profiles and batched display names), Requests (requests, decisions, audit list, dashboard cache), Admin (users and projects), Health. Request logging is shared infrastructure.
 
 Use ordinary services and focused query methods. Avoid generic repository frameworks, CQRS/event sourcing, a distributed event bus, and abstraction layers that only wrap Prisma unchanged.
 
@@ -87,12 +88,15 @@ erDiagram
     Organization ||--o{ Membership : "has"
     Organization ||--|| TenantDirectory : "routed by"
     Organization ||--o{ ControlAuditEvent : "logs"
+    Organization ||--o{ Project : "has (M9)"
+    Project ||--o{ Membership : "current project (same organization)"
+    Membership ||--o{ Project : "manages"
     Request ||--o{ RequestAuditEvent : "logs (FK includes tenantId)"
     TenantDirectory ||..o{ Request : "shardKey selects database; tenantId = organizationId"
     User ||..o{ Request : "createdByUserId / reviewedByUserId (scalar)"
 ~~~
 
-User, Organization, Membership, TenantDirectory, and ControlAuditEvent live in the control database. Request and RequestAuditEvent live in each tenant shard.
+User, Organization, Membership, Project, TenantDirectory, and ControlAuditEvent live in the control database. Request and RequestAuditEvent live in each tenant shard.
 
 Use composite keys/uniques and foreign keys that include tenantId where appropriate, especially RequestAuditEvent -> Request. Add indexes for tenant/status/category and descending createdAt/id pagination.
 
@@ -147,7 +151,7 @@ Use one tenant migration history and apply it to both physical shards. The migra
 
 ## 6. Local session authentication
 
-Use maintained session middleware with a Redis-backed session store, such as the documented NestJS Express session integration with a compatible Redis store. Verify exact package/version compatibility in M0.
+Implemented with maintained session middleware and a Redis-backed store: express-session with connect-redis (ADR-010, ADR-015).
 
 Session payload: userId, sessionVersion at login, createdAt/absoluteExpiry, and CSRF material. Tenant/role may be displayed from /auth/me, but authorization always re-reads current control data.
 
@@ -161,7 +165,7 @@ Cookie settings:
 - Clear the cookie using matching attributes on logout.
 
 Passwords:
-- Use Argon2id via a maintained library, with at least the OWASP baseline (19 MiB memory, 2 iterations, parallelism 1); benchmark locally.
+- Use Argon2id via a maintained library (@node-rs/argon2), with the OWASP baseline (19 MiB memory, 2 iterations, parallelism 1). Benchmarking on target hardware is a known gap.
 - Validate 12–128 characters; allow spaces, Unicode, paste, and password managers.
 - No plaintext passwords in PostgreSQL, audit, logs, Redis, or Git.
 - Return a generic invalid-credentials result for unknown/disabled users and bad passwords; use comparable hash work for unknown accounts.
@@ -207,8 +211,8 @@ Paths below are relative to /api/v1. Business success responses use explicit DTO
 | PATCH /admin/users/:membershipId | ADMIN | Change role, active state, designation, or project in own company |
 | GET /admin/projects | ADMIN | Own company's projects with manager and member count |
 | GET /admin/audit | ADMIN | Cursor list of own company's request audit events |
-| GET /health/live | Internal/loopback | Process is alive |
-| GET /health/ready | Internal/loopback | Required dependencies/migrations are ready |
+| GET /health/live | Public (probes) | Process is alive |
+| GET /health/ready | Public (probes, `demo:verify`); only up/down per dependency | Required dependencies/migrations are ready |
 
 "Full active membership" excludes mustChangePassword sessions.
 
@@ -216,7 +220,7 @@ Decision body: decision APPROVED/REJECTED, expectedVersion nonnegative integer, 
 
 Error body: { code, message, requestId, details?, attemptsRemaining? } (attemptsRemaining only on a failed sign-in). Examples: 400 invalid input/cursor; 401 missing/invalid session; 403 wrong role/self-review/CSRF; 404 inaccessible record; 409 stale/already-decided request or protected last-admin change; 429 shared rate limit; 503 unavailable required dependency. Never expose stack traces or database error text.
 
-Document OpenAPI locally. Do not expose internal credentials or administrative debug endpoints through Swagger.
+The contracts are the zod schemas and TypeScript types in `packages/contracts`, used by both the API and the web forms. No Swagger UI or debug endpoint is exposed; generated OpenAPI documentation is future scope (docs/roadmap.md).
 
 ## 8. Transaction patterns and race handling
 
@@ -327,7 +331,7 @@ Log structured records containing requestId, route, status, duration, and safe i
 
 Readiness checks all required database connections, Redis, and (since M7) that every committed migration is applied in control and both shards; liveness checks process health independently. This demo can report unready if a shard is down; it does not promise per-tenant availability. On shutdown: stop accepting new work, allow bounded completion, close pools/Redis.
 
-Storage lives in named PostgreSQL volumes. Stop commands do not remove them. Document backup/restore as a future operational step; sharding across one laptop is neither replication nor disaster recovery.
+Storage lives in named PostgreSQL volumes. Stop commands do not remove them. Backup/restore is a future operational step (docs/roadmap.md); sharding across one laptop is neither replication nor disaster recovery.
 
 Current limits: one organization per account, fixed shard directory, no cross-shard joins/transactions, short-lived dashboard staleness, one local machine, and no production HA. Describe these in the final README/demo.
 

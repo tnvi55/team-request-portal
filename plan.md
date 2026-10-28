@@ -1,10 +1,10 @@
-# Team Request & Approval Portal — implementation plan M1 | M1 | M2 | M2 | M2 | M1 | M1 | M1 (test:e2e: M3) | M1 | M1 | M8 | M1 | M1 |
+# Team Request & Approval Portal — implementation plan
 
-Version: 1.0 | Created: 2026-10-19 | Status: agreed project direction; implementation not started
+Version: 1.1 | Created: 2026-10-19 | Updated: 2026-10-28 | Status: MVP (M0–M8) and M9 complete and verified
 
 ## 1. Goal and boundaries
 
-Build a small multi-tenant SaaS application to learn Next.js App Router, NestJS, PostgreSQL, Prisma, Redis, secure authentication, RBAC, transactions, pagination, horizontal sharding, and stateless application processes.
+Build a multi-tenant SaaS application that replaces ad-hoc requests over email, chat, and spreadsheets with one secure, auditable workflow. The build is also a hands-on way to master Next.js App Router, NestJS, PostgreSQL, Prisma, Redis, secure authentication, RBAC, transactions, pagination, horizontal sharding, and stateless application processes.
 
 An employee requests equipment or software. A reviewer approves or rejects the request. An organization administrator manages accounts and roles. Independent companies use the same application while their data remains isolated.
 
@@ -12,7 +12,9 @@ This is a local learning implementation with professional engineering practices.
 
 **This file owns product scope, business rules, milestone acceptance criteria, and completion status.** Technical mechanics live in [architecture.md](docs/architecture.md); enduring decisions and assumptions live in [decisions.md](docs/decisions.md); plain-language concept explanations live in [learning.md](docs/learning.md). Avoid duplicating task status elsewhere.
 
-## 2. Interpretation of the mentor's requirements
+## 2. Project requirements and chosen interpretation
+
+The project brief set the requirements in the left column. The right column records how this implementation meets each one.
 
 | Requirement | Chosen interpretation |
 | --- | --- |
@@ -23,7 +25,7 @@ This is a local learning implementation with professional engineering practices.
 | Everything locally | The application runtime uses locally running software and no hosted identity, database, email, storage, or cache service |
 | Git evidence | Incremental commits, reproducible setup, tests, architecture diagram, and demo script |
 
-**Assumption A-01:** "user pool" means an identity store, not a mandatory standalone OIDC identity provider. Proceed with the selected NestJS implementation; record this point for mentor review. If the mentor requires a separate identity provider, revise the auth design before implementing M3. Do not add Firebase, Cognito, Clerk, Auth0, or a homegrown OIDC server.
+**Assumption A-01:** "user pool" means an identity store, not a mandatory standalone OIDC identity provider. The selected NestJS implementation is the identity store. Single sign-on through an external OIDC/SAML provider is listed in [future scope](docs/roadmap.md); the MVP does not add Firebase, Cognito, Clerk, Auth0, or a homegrown OIDC server.
 
 **Assumption A-02:** Open-source libraries and locally running infrastructure are allowed. Claude and the company's Git remote are development tools outside the application runtime. Downloading packages/images is required initially; application flows should work without hosted APIs after setup.
 
@@ -45,13 +47,13 @@ This is a local learning implementation with professional engineering practices.
 - Filters by status/category on request lists; tenant-scoped dashboard counts.
 - Two real tenant data shards and a central tenant directory.
 - Shared sessions, login/API limits, and dashboard caching in local Redis.
-- Local startup, migrations, synthetic seed data, tests, and mentor demo.
+- Local startup, migrations, synthetic seed data, tests, and a reproducible demo.
 
 ### Explicitly deferred
 
 Public registration, paid subscriptions, payments, real procurement, stock management, leave calculations, emails, invites, attachments, chat, configurable workflows, background queues, webhooks, external integrations, tenant self-service creation, automatic shard rebalancing, cross-shard reporting, Kubernetes, microservices, and an AI feature inside the application.
 
-Do not add these as "helpful" extras. AI assistance is the development workflow; it is not an additional product requirement.
+Do not add these as "helpful" extras. AI assistance is the development workflow; it is not an additional product requirement. The planned direction for these items is in [docs/roadmap.md](docs/roadmap.md).
 
 ### Roles and permissions
 
@@ -113,9 +115,9 @@ No global super-admin is exposed in the app. Local bootstrap scripts provision o
 Public: /login.
 Authenticated: /change-password, /dashboard, /requests, /requests/new, /requests/[id].
 Reviewer access: company view on /requests.
-Admin: /admin/users and /admin/audit.
+Admin: /admin/users, /admin/audit, and /status (system status, M9).
 
-All API paths use /api/v1. Exact request/response contracts are generated into OpenAPI during implementation. See architecture.md for the initial endpoint map.
+All API paths use /api/v1. Request and response contracts are zod schemas and TypeScript types in `packages/contracts`, shared by the API and the web app (ADR-015); generated OpenAPI documentation is future scope. See architecture.md for the endpoint map.
 
 Next.js owns presentation and transient browser state. NestJS owns authentication, authorization, and all business writes. Hiding a button is only UI behavior; the API must enforce the same permission.
 
@@ -123,11 +125,11 @@ Next.js owns presentation and transient browser state. NestJS owns authenticatio
 
 Implement one milestone at a time in the order below. Break a milestone into smaller tasks if needed. Each gate requires real command output; do not mark a checkbox just because code exists.
 
-**Priority if time runs short** (no deadline is set yet; see Q-01). Keep the order; cut from the end, never skip a gate:
+**Priority order** (used for planning; every tier was delivered). Keep the order; cut from the end, never skip a gate:
 
 | Tier | Milestones | Why |
 | --- | --- | --- |
-| Core (must demo) | M0–M5 | Login, tenant isolation on two shards, atomic decisions + audit: the heart of every mentor requirement |
+| Core (must demo) | M0–M5 | Login, tenant isolation on two shards, atomic decisions + audit: the heart of every project requirement |
 | Important | M6–M7 | Admin safety, shared limits, cache: completes the "multi-role" and "Redis" requirements |
 | Polish | M8 | Two-replica proof and final rehearsal; still required for D07/D09 |
 
@@ -276,7 +278,7 @@ Learn: cache keys and scope, TTL, eventual consistency, fail-open vs fail-closed
 - [x] Review git diff and staged files, commit logical changes, and push the user-selected branch/remote under the user's normal workflow.
 - [x] Record known limitations honestly and update this checklist and session_state.md.
 
-Status: evidence 2026-10-27 (`pnpm demo:verify` all checks passed on the rebuilt replicas: readiness incl. migrations, both API and web replicas with identical builds, one session on api-1 and api-2, CSRF/Origin refusals, tenant field rejected, cache hit, employee scope, 116 + 4 = 120 calls across both replicas then 429, `db:verify`; failover script: api-1 stopped -> all calls 200 on api-2, restarted api-1 serves the same session, web-1 stopped -> pages from web-2; `docker stop` 0.7 s with `Database pools closed (SIGTERM)`; `pnpm verify`, 16 + 86 integration, 6/6 E2E on the replicas, `pnpm build`; full-history secret scan over 28 commits clean and no `.env`/credential files tracked). The walkthrough was rehearsed with these commands and scripts, not yet presented live to the mentor.
+Status: evidence 2026-10-27 (`pnpm demo:verify` all checks passed on the rebuilt replicas: readiness incl. migrations, both API and web replicas with identical builds, one session on api-1 and api-2, CSRF/Origin refusals, tenant field rejected, cache hit, employee scope, 116 + 4 = 120 calls across both replicas then 429, `db:verify`; failover script: api-1 stopped -> all calls 200 on api-2, restarted api-1 serves the same session, web-1 stopped -> pages from web-2; `docker stop` 0.7 s with `Database pools closed (SIGTERM)`; `pnpm verify`, 16 + 86 integration, 6/6 E2E on the replicas, `pnpm build`; full-history secret scan over 28 commits clean and no `.env`/credential files tracked). The walkthrough in docs/demo.md was rehearsed with these commands and scripts.
 
 Gate: another developer can reproduce setup and the documented demo from a clean checkout. All required tests pass against real local Postgres/Redis; report any unrun checks instead of claiming completion.
 
@@ -284,7 +286,7 @@ Learn: stateless processes vs stateful stores, horizontal scaling. Exercise: sto
 
 ### M9 — usability: people, projects, and polish (post-MVP, requested 2026-10-28)
 
-Scope added by the user after the MVP review. Display data only: roles still decide every permission.
+Usability requirements added after the MVP review. Display data only: roles still decide every permission.
 
 - [x] System status page for admins only, with the app header and a back link; the public readiness endpoint stays for probes (ADR-021).
 - [x] Projects per company, each with its own manager; a member's designation and current project; current manager = the project's manager (control migration, composite same-organization foreign keys, runtime SELECT only on projects).
@@ -336,7 +338,7 @@ Commands marked M1 exist in the root package.json and were run in M1. The others
 | pnpm test:unit / pnpm test:integration / pnpm test:e2e | Meaningful test layers with isolated test data | M1; test:e2e M3 (needs the app running at :8080) |
 | pnpm build | Build web and API | M1 |
 | pnpm demo:up / pnpm demo:down | Start/stop the production-build replica demo | M1 |
-| pnpm demo:verify | Run non-destructive checks for the mentor demo (needs `pnpm demo:up`) | M8 |
+| pnpm demo:verify | Run non-destructive checks for the demo (needs `pnpm demo:up`) | M8 |
 
 Do not add a default command that deletes Docker volumes. Destructive resets, if ever needed, require an explicitly named command and a local-target guard.
 
@@ -350,3 +352,7 @@ For a task: read the relevant requirements; state a brief implementation approac
 
 Log non-blocking questions in decisions.md. Ask only when a real missing requirement changes scope/security, a tool is unavailable, or a destructive action is needed. Do not request approval after every ordinary file edit.
 
+
+## 10. Future scope
+
+The MVP and M9 are complete. The roadmap beyond them lives in [docs/roadmap.md](docs/roadmap.md). It covers smarter approvals, notifications, a private AI assistant, enterprise identity, insights, platform scale, and a configurable approval engine. Like M9, any roadmap item becomes scope only after it is recorded here as a new milestone with acceptance gates.

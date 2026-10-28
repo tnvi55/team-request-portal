@@ -1,6 +1,6 @@
-# Mentor demo and evidence checklist
+# Demo walkthrough and evidence checklist
 
-Status: rehearsed 2026-10-27 against the production replica demo. The evidence table at the end records the actual commands and results. Re-run them before presenting; the table is a record, not a guarantee.
+Status: rehearsed 2026-10-27 against the production replica demo; M9 steps checked 2026-10-28 against `pnpm dev`. The evidence table at the end records the actual commands and results. Re-run them before presenting; the table is a record, not a guarantee.
 
 Product rules: [plan.md](../plan.md).
 Technical design: [architecture.md](architecture.md).
@@ -27,11 +27,12 @@ Show the diagram in the README ("How it fits together") and explain:
 
 ## 2. Employee journey
 
-- Sign in as `employee@atlas.example`.
+- On the sign-in page, type a wrong password for `employee@atlas.example`: Show/Hide reveals what was typed, and the error says how many attempts are left (the same for unknown emails, so it reveals nothing about which accounts exist).
+- Sign in as `employee@atlas.example` (Rohan Gupta, Robotics Engineer). The dashboard profile card shows the current project (Warehouse Arm v2) and that project's manager (Arjun Rao).
 - Submit "Monitor for workstation" under Equipment.
 - Open its Pending detail and list entry.
 - Show Load more and a status/category filter on Requests.
-- Open http://localhost:8080/admin/users: "Admins only"; the API answers 403.
+- Open http://localhost:8080/admin/users or /status: "Admins only" with a way back; the admin API answers 403.
 - Open a coworker's request URL: "Request not found" (404, not 403: the API does not confirm it exists).
 
 Evidence: browser flow plus `requests.int-spec.ts` (ownership and role tests).
@@ -50,7 +51,8 @@ Evidence: tests against real Postgres; Admin > Audit shows exactly one decision 
 
 ## 4. Admin journey and current permissions
 
-- Sign in as `admin@atlas.example`; open Users and Audit (both paginated).
+- Sign in as `admin@atlas.example` (Meera Kapoor); open Users and Audit (both paginated). Users shows each person's designation, project and current manager, and the two projects with their managers; changing a designation or project is one control transaction with an audit event.
+- Open System status: control database, both shards, Redis and migrations all `up`.
 - Create a user with a temporary password; sign in as them in a private window: they must change it first.
 - Set `manager@atlas.example` to Employee; in the manager's window open Requests > Company: 403 on the next call.
 - Disable that account: their next click signs them out. Re-enable: they must sign in again.
@@ -129,6 +131,7 @@ All results from 2026-10-27 on the Windows 11 + Docker Desktop development machi
 | Shared rate limits | `demo:verify` | 58 calls on api-1 + 58 on api-2 (+4 earlier) = 120, then 429 with Retry-After | Login limit: `auth.int-spec.ts` |
 | Two web/API instances and process restart | `demo:verify`, M8 failover script | both web replicas serve identical assets; with api-1 stopped all calls 200 on api-2; after restart the same session works on api-1; with web-1 stopped pages served by web-2 | `docker stop` 0.7 s, log `Database pools closed (SIGTERM)` |
 | Lint, typecheck, unit/integration/E2E, build | `pnpm verify`, `pnpm test:integration`, `pnpm test:e2e` (on `demo:up`), `pnpm build` | clean; unit 17 API + 9 database; integration 16 + 86; E2E 6/6; build ok | |
+| M9 people and projects | `pnpm test:integration`, `pnpm test:e2e` (against `pnpm dev`), `db:verify` | 16 + 93 integration (7 new: project isolation, profile, cross-company project refused by API and database, attempts left); E2E 6/6; runtime role can only read projects | 2026-10-28 |
 | Fresh checkout and seed twice | fresh clone of `m8-handoff` from GitHub: install, verify, build, `audit --prod`, integration, migrate, seed, `db:verify`, seed again, `demo:up`, E2E, `demo:verify` | all pass; `db:verify` output identical after the second seed; E2E 6/6 and every `demo:verify` check on the clone's own replicas | The first attempt stopped at the audit: a new qs advisory, fixed with an override (ADR-013) |
 
 ## Honest limitations to state
