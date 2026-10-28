@@ -61,7 +61,13 @@ Where: [cursor.ts](../apps/api/src/common/cursor.ts), used in [requests.service.
 Where: [seed.ts](../packages/database/src/scripts/seed.ts), [seed-data.ts](../packages/database/src/scripts/seed-data.ts).
 
 **Joining across databases in the app.** Requests (shard) store user ids; names live in the control database. Postgres cannot join two databases, so the API collects the ids on a page and fetches all names in ONE query (never one per row, the "N+1" problem).
-Where: [people.service.ts](../apps/api/src/requests/people.service.ts).
+Where: [people.service.ts](../apps/api/src/people/people.service.ts).
+
+**Composite foreign keys (M9).** A project and its members must belong to the same company. A normal foreign key only says "this project exists"; a composite one, (project_id, organization_id) pointing at (id, organization_id), says "this project exists in MY company". So even a bug in the API cannot put an Atlas employee on a Cedar project: the database refuses.
+Where: [the M9 migration](../packages/database/prisma/control/migrations/20261028120000_projects_and_job_titles/migration.sql), test "the database itself refuses a cross-company project".
+
+**Display data vs permission data (M9).** Designation and project are shown on screen but never checked for access. Only the role (re-read on every request) decides what someone may do, so a typo in a designation can never grant power.
+Where: [people.service.ts](../apps/api/src/people/people.service.ts), ADR-021.
 
 **Database CHECK constraints.** Rules the database itself refuses to break, even if application code has a bug: no self-review, a rejection needs a comment, titles 3-120 characters.
 Where: the same RLS migration file.

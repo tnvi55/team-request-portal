@@ -282,6 +282,22 @@ Gate: another developer can reproduce setup and the documented demo from a clean
 
 Learn: stateless processes vs stateful stores, horizontal scaling. Exercise: stop api-1 mid-demo and explain why your login survives on api-2.
 
+### M9 — usability: people, projects, and polish (post-MVP, requested 2026-10-28)
+
+Scope added by the user after the MVP review. Display data only: roles still decide every permission.
+
+- [x] System status page for admins only, with the app header and a back link; the public readiness endpoint stays for probes (ADR-021).
+- [x] Projects per company, each with its own manager; a member's designation and current project; current manager = the project's manager (control migration, composite same-organization foreign keys, runtime SELECT only on projects).
+- [x] Seed: real names and designations, two projects and a second manager per company; earlier placeholder names upgraded once; admin edits never overwritten.
+- [x] Profile on `/auth/me` (dashboard, header) and on request details; Users admin sets designation and project (one control transaction with lock and audit event); `GET /admin/projects`.
+- [x] Dashboard and navbar redesign: profile card, coloured count tiles, role-based quick-action buttons, brand + pill navigation + user chip; responsive.
+- [x] Show/Hide toggle on every password field; a failed sign-in shows the attempts left (per-email counter, so it reveals nothing about which emails exist).
+- [x] Tests: 7 new API integration tests (projects isolation, profile, cross-company project refused by API and database, attempts left), 2 seed unit tests, E2E checks for the toggle, attempts, profile, and status access.
+
+Status: evidence 2026-10-28 (`pnpm verify`, 16 + 93 integration, 6/6 E2E against `pnpm dev`, `db:migrate:all`, seed twice (second run changes nothing), `db:verify` incl. the projects grant).
+
+Learn: composite foreign keys as a tenant-safety net; display data vs authorization data.
+
 ## 7. Definition of done and evidence
 
 | ID | Required behavior | Evidence |

@@ -57,7 +57,8 @@ A user pool is the central identity registry used for local sign-in. It is disti
 | --- | --- |
 | User | id UUID; normalizedEmail globally unique; displayName; passwordHash; isActive; mustChangePassword; sessionVersion; timestamps |
 | Organization | id UUID; slug unique; name; isActive; timestamps |
-| Membership | id UUID; userId unique for this MVP; organizationId; role ADMIN/MANAGER/EMPLOYEE; isActive; timestamps |
+| Membership | id UUID; userId unique for this MVP; organizationId; role ADMIN/MANAGER/EMPLOYEE; jobTitle (designation, display only); projectId (same organization, composite FK); isActive; timestamps |
+| Project (M9) | id UUID; organizationId; name unique per organization; managerMembershipId (same organization, composite FK); runtime role may only SELECT |
 | TenantDirectory | organizationId unique/FK; shardKey restricted to configured shard-a/shard-b |
 | ControlAuditEvent | id; organizationId when relevant; actorUserId when known; action; targetId; safe metadata; timestamp; requestId |
 
@@ -193,7 +194,7 @@ Paths below are relative to /api/v1. Business success responses use explicit DTO
 | --- | --- | --- |
 | GET /auth/csrf | Public, session-backed | Obtain CSRF token |
 | POST /auth/login | Public + CSRF + login limits | Authenticate and rotate session |
-| GET /auth/me | Any authenticated identity | Current identity, membership, password-change flag |
+| GET /auth/me | Any authenticated identity | Current identity, membership, password-change flag, profile (designation, project, manager, managed projects) |
 | POST /auth/logout | Authenticated + CSRF | Destroy current session |
 | POST /auth/change-password | Authenticated + CSRF | Validate old password, change hash, revoke sessions |
 | GET /dashboard | Full active membership | Counts for own/company permitted scope |
@@ -203,7 +204,8 @@ Paths below are relative to /api/v1. Business success responses use explicit DTO
 | POST /requests/:id/decision | MANAGER/ADMIN + not submitter | Decide pending request atomically |
 | GET /admin/users | ADMIN | Cursor list of own company's users |
 | POST /admin/users | ADMIN | Create local user + membership + control audit |
-| PATCH /admin/users/:membershipId | ADMIN | Change role or active state in own company |
+| PATCH /admin/users/:membershipId | ADMIN | Change role, active state, designation, or project in own company |
+| GET /admin/projects | ADMIN | Own company's projects with manager and member count |
 | GET /admin/audit | ADMIN | Cursor list of own company's request audit events |
 | GET /health/live | Internal/loopback | Process is alive |
 | GET /health/ready | Internal/loopback | Required dependencies/migrations are ready |
@@ -212,7 +214,7 @@ Paths below are relative to /api/v1. Business success responses use explicit DTO
 
 Decision body: decision APPROVED/REJECTED, expectedVersion nonnegative integer, optional/required comment according to plan.md. Request IDs are validated UUIDs. Use whitelist validation with unknown fields rejected.
 
-Error body: { code, message, requestId, details? }. Examples: 400 invalid input/cursor; 401 missing/invalid session; 403 wrong role/self-review/CSRF; 404 inaccessible record; 409 stale/already-decided request or protected last-admin change; 429 shared rate limit; 503 unavailable required dependency. Never expose stack traces or database error text.
+Error body: { code, message, requestId, details?, attemptsRemaining? } (attemptsRemaining only on a failed sign-in). Examples: 400 invalid input/cursor; 401 missing/invalid session; 403 wrong role/self-review/CSRF; 404 inaccessible record; 409 stale/already-decided request or protected last-admin change; 429 shared rate limit; 503 unavailable required dependency. Never expose stack traces or database error text.
 
 Document OpenAPI locally. Do not expose internal credentials or administrative debug endpoints through Swagger.
 

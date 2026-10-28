@@ -207,6 +207,18 @@ Status: selected in M8.
 - **Shutdown evidence:** `DatabaseService` logs `Database pools closed (SIGTERM)` from its shutdown hook. Exit code 143 after `docker stop` is Nest re-raising SIGTERM after the hooks ran, well within the 15 s grace period (a forced kill would be 137). Successful health probes are not request-logged, so the container log stays readable.
 Consequence: the demo proves horizontal scaling of stateless processes on one machine; the stateful stores (Postgres, Redis) remain single instances.
 
+## ADR-021 — People, projects, and the status page (M9)
+
+Status: selected in M9 (user request after the MVP).
+- **Where the data lives:** projects, designations (`memberships.job_title`) and project membership (`memberships.project_id`) are organization structure, so they live in the control database next to memberships, not in a tenant shard. Account administration therefore stays one control transaction (organization lock, change, audit event).
+- **Same company only, enforced twice:** the API checks the project belongs to the caller's organization, and composite foreign keys `(project_id, organization_id) -> projects(id, organization_id)` and `(manager_membership_id, organization_id) -> memberships(id, organization_id)` make a cross-company link impossible even for buggy code.
+- **Manager = project manager:** a member's current manager is derived from their project, not stored per person, so changing a project's manager updates everyone on it. A company can have many projects and managers. Disabled managers are not shown.
+- **Display only:** designation, project and manager grant nothing. Any MANAGER/ADMIN of the company may still review any request (plan rule); restricting reviews to a project's manager would be a separate business-rule change.
+- **Projects are read-only for the runtime role:** created by operators/seed (`GRANT SELECT` only); `db:verify` checks it. A project editor can be added later with its own audit event.
+- **Status page:** the web page is shown to admins only and has the normal header and a back link. `GET /health/ready` stays public because the proxy, container health checks and `demo:verify` call it without a session; it exposes only up/down per dependency.
+- **Attempts left:** a failed sign-in returns `attemptsRemaining` from the same Redis counters (the tighter of per-email and per-IP). The per-email counter exists for unknown emails too, so the number does not reveal whether an account exists.
+Consequence: one extra control query on `/auth/me`, login and request details (the profile); the per-request session guard is unchanged.
+
 ## Deferred questions / parking lot
 
 | ID | Question | Treatment |

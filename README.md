@@ -2,7 +2,7 @@
 
 A local multi-tenant SaaS learning project: employees submit equipment/software requests, reviewers approve or reject, and organization admins manage accounts.
 
-**Current status: MVP complete (M0–M8).** Sign in at http://localhost:8080, submit requests, browse them with filters and paging, and see dashboard counts (cached in Redis for up to 5 seconds per company and person). Managers and admins approve or reject other people's requests (a rejection needs a comment); admins see the company audit history under Audit and manage accounts under Users (create with a temporary password, change roles, enable/disable; the last active admin is protected). Each signed-in person may make 120 API calls per minute across all API copies. The production build runs as two web and two API copies behind one proxy, and `pnpm demo:verify` checks it. Progress and evidence live in [plan.md](plan.md), [session_state.md](session_state.md), and [docs/demo.md](docs/demo.md).
+**Current status: MVP complete (M0–M8), plus M9 usability (people, projects, redesigned dashboard).** Sign in at http://localhost:8080, submit requests, browse them with filters and paging, and see dashboard counts (cached in Redis for up to 5 seconds per company and person). Managers and admins approve or reject other people's requests (a rejection needs a comment); admins see the company audit history under Audit and manage accounts under Users (create with a temporary password, change roles, enable/disable; the last active admin is protected). Each signed-in person may make 120 API calls per minute across all API copies. The production build runs as two web and two API copies behind one proxy, and `pnpm demo:verify` checks it. Progress and evidence live in [plan.md](plan.md), [session_state.md](session_state.md), and [docs/demo.md](docs/demo.md).
 
 ## How it fits together
 
@@ -70,7 +70,7 @@ pnpm db:verify        # read-only checks: shard histories, RLS, roles, data plac
 pnpm dev              # Next.js on 127.0.0.1:3000 + NestJS on 127.0.0.1:3001
 ~~~
 
-Open http://localhost:8080. The status page shows API readiness for the control database, both shards, Redis, and migrations. Always use port 8080 (the proxy), not 3000/3001, so pages and `/api/v1` share one origin.
+Open http://localhost:8080. Admins have a System status page (in the navigation) showing API readiness for the control database, both shards, Redis, and migrations. Always use port 8080 (the proxy), not 3000/3001, so pages and `/api/v1` share one origin.
 
 Daily commands:
 
@@ -105,7 +105,7 @@ In demo mode every API response carries `X-Instance-ID: api-1|api-2` and Nginx a
 
 To watch a replica fail and recover: `docker stop trp-api-1-1`, keep using the app (api-2 answers; the first request after the stop may fail once while the proxy notices), then `docker start trp-api-1-1`. The same session keeps working on both. The same works for `trp-web-1-1`.
 
-Demo accounts: `pnpm db:seed` writes random passwords for `admin|manager|employee|employee2@<atlas|cedar|birch>.example` to `.local/demo-credentials.json` (Git-ignored). Use them on the sign-in page. Five sign-in attempts on one account within 15 minutes (right or wrong) block further attempts until the window ends (Retry-After tells you how long). Each `pnpm test:e2e` run signs some accounts in several times, so wait 15 minutes between back-to-back runs.
+Demo accounts: `pnpm db:seed` writes random passwords for `admin|manager|manager2|employee|employee2@<atlas|cedar|birch>.example` to `.local/demo-credentials.json` (Git-ignored). Use them on the sign-in page. Each company has two projects, each with its own manager (`manager` and `manager2`); each employee is on one project, so their manager is that project's manager. Seeded people have realistic names and designations (for example Atlas: Meera Kapoor, Head of Operations). Five sign-in attempts on one account within 15 minutes (right or wrong) block further attempts until the window ends (Retry-After tells you how long); after a wrong password the form shows how many attempts are left. Each `pnpm test:e2e` run signs some accounts in several times, so wait 15 minutes between back-to-back runs.
 
 Health endpoints: `GET /api/v1/health/live` (process alive) and `GET /api/v1/health/ready` (200 when all dependencies answer and every committed migration is applied, otherwise 503 listing which check failed; no hostnames or errors exposed). After pulling new migrations, run `pnpm db:migrate:all`, or readiness reports `migrations: down`.
 
