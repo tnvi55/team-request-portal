@@ -8,9 +8,12 @@ import {
   type MeResponse,
   type MembershipRole,
   type Page,
+  type ProjectSummary,
+  type UpdateMembershipBody,
 } from '@trp/contracts';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { AppHeader } from '../../../components/app-header';
+import { PasswordInput } from '../../../components/password-input';
 import { RequireAuth } from '../../../components/require-auth';
 import { formatDate } from '../../../components/status-badge';
 import { api, describeError } from '../../../lib/api';
@@ -18,10 +21,21 @@ import { useAuth } from '../../../lib/auth-context';
 
 const roleLabel = (role: MembershipRole) => role.charAt(0) + role.slice(1).toLowerCase();
 
-function CreateUserForm({ onCreated }: { onCreated: (user: CompanyUser) => void }) {
+/** "Vision Platform (Sofia Fernandes)": the manager helps the admin pick the right team. */
+const projectLabel = (p: ProjectSummary) => (p.manager ? `${p.name} (${p.manager.displayName})` : p.name);
+
+function CreateUserForm({
+  projects,
+  onCreated,
+}: {
+  projects: ProjectSummary[];
+  onCreated: (user: CompanyUser) => void;
+}) {
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [jobTitle, setJobTitle] = useState('');
   const [role, setRole] = useState<MembershipRole>('EMPLOYEE');
+  const [projectId, setProjectId] = useState('');
   const [temporaryPassword, setTemporaryPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -30,7 +44,14 @@ function CreateUserForm({ onCreated }: { onCreated: (user: CompanyUser) => void 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (pending) return;
-    const parsed = CreateUserSchema.safeParse({ email, displayName, role, temporaryPassword });
+    const parsed = CreateUserSchema.safeParse({
+      email,
+      displayName,
+      role,
+      temporaryPassword,
+      ...(jobTitle.trim() && { jobTitle }),
+      ...(projectId && { projectId }),
+    });
     if (!parsed.success) {
       setError(parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '));
       return;
@@ -47,7 +68,9 @@ function CreateUserForm({ onCreated }: { onCreated: (user: CompanyUser) => void 
       );
       setEmail('');
       setDisplayName('');
+      setJobTitle('');
       setRole('EMPLOYEE');
+      setProjectId('');
     } catch (err) {
       setError(describeError(err));
     } finally {
@@ -65,46 +88,76 @@ function CreateUserForm({ onCreated }: { onCreated: (user: CompanyUser) => void 
       aria-labelledby="create-heading"
     >
       <h2 id="create-heading">Add a user</h2>
-      <label htmlFor="new-email">Work email</label>
-      <input
-        id="new-email"
-        type="email"
-        autoComplete="off"
-        required
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <label htmlFor="new-name">Display name</label>
-      <input
-        id="new-name"
-        required
-        minLength={2}
-        maxLength={120}
-        value={displayName}
-        onChange={(e) => setDisplayName(e.target.value)}
-      />
-      <label htmlFor="new-role">Role</label>
-      <select id="new-role" value={role} onChange={(e) => setRole(e.target.value as MembershipRole)}>
-        {MEMBERSHIP_ROLES.map((r) => (
-          <option key={r} value={r}>
-            {roleLabel(r)}
-          </option>
-        ))}
-      </select>
-      <label htmlFor="new-password">Temporary password</label>
-      <input
-        id="new-password"
-        type="password"
-        autoComplete="new-password"
-        required
-        minLength={PASSWORD_MIN_LENGTH}
-        aria-describedby="new-password-hint"
-        value={temporaryPassword}
-        onChange={(e) => setTemporaryPassword(e.target.value)}
-      />
-      <p id="new-password-hint" className="muted small">
-        At least {PASSWORD_MIN_LENGTH} characters. Stored only as a hash.
-      </p>
+      <div className="form-grid">
+        <div className="field">
+          <label htmlFor="new-email">Work email</label>
+          <input
+            id="new-email"
+            type="email"
+            autoComplete="off"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="new-name">Display name</label>
+          <input
+            id="new-name"
+            required
+            minLength={2}
+            maxLength={120}
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="new-title">Designation</label>
+          <input
+            id="new-title"
+            maxLength={80}
+            placeholder="e.g. QA Engineer"
+            value={jobTitle}
+            onChange={(e) => setJobTitle(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="new-role">Role</label>
+          <select id="new-role" value={role} onChange={(e) => setRole(e.target.value as MembershipRole)}>
+            {MEMBERSHIP_ROLES.map((r) => (
+              <option key={r} value={r}>
+                {roleLabel(r)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="new-project">Project</label>
+          <select id="new-project" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+            <option value="">No project</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {projectLabel(p)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="new-password">Temporary password</label>
+          <PasswordInput
+            id="new-password"
+            autoComplete="new-password"
+            required
+            minLength={PASSWORD_MIN_LENGTH}
+            aria-describedby="new-password-hint"
+            value={temporaryPassword}
+            onChange={(e) => setTemporaryPassword(e.target.value)}
+          />
+          <p id="new-password-hint" className="muted small">
+            At least {PASSWORD_MIN_LENGTH} characters. Stored only as a hash.
+          </p>
+        </div>
+      </div>
       <div aria-live="assertive" className="form-error">
         {error && <p className="bad">{error}</p>}
       </div>
@@ -119,21 +172,26 @@ function CreateUserForm({ onCreated }: { onCreated: (user: CompanyUser) => void 
 function UserRow({
   user,
   isSelf,
+  projects,
   onChanged,
 }: {
   user: CompanyUser;
   isSelf: boolean;
+  projects: ProjectSummary[];
   onChanged: (user: CompanyUser) => void;
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [jobTitle, setJobTitle] = useState(user.jobTitle ?? '');
 
-  async function update(body: { role?: MembershipRole; isActive?: boolean }) {
+  async function update(body: UpdateMembershipBody) {
     if (pending) return;
     setPending(true);
     setError(null);
     try {
-      onChanged(await api<CompanyUser>(`/admin/users/${user.membershipId}`, { method: 'PATCH', body }));
+      const updated = await api<CompanyUser>(`/admin/users/${user.membershipId}`, { method: 'PATCH', body });
+      setJobTitle(updated.jobTitle ?? '');
+      onChanged(updated);
     } catch (err) {
       setError(describeError(err));
     } finally {
@@ -142,18 +200,42 @@ function UserRow({
   }
 
   const name = user.user.displayName;
+  const titleChanged = jobTitle.trim() !== (user.jobTitle ?? '');
   return (
     <tr>
       <th scope="row">
-        {name}
+        <span className="person-name">{name}</span>
         {isSelf && <span className="muted"> (you)</span>}
+        <span className="muted small person-email">{user.user.email}</span>
         {error && (
           <p className="bad small" role="alert">
             {error}
           </p>
         )}
       </th>
-      <td>{user.user.email}</td>
+      <td>
+        <form
+          className="inline-edit"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (titleChanged) void update({ jobTitle: jobTitle.trim() || null });
+          }}
+        >
+          <input
+            aria-label={`Designation for ${name}`}
+            maxLength={80}
+            placeholder="No designation"
+            value={jobTitle}
+            disabled={pending}
+            onChange={(e) => setJobTitle(e.target.value)}
+          />
+          {titleChanged && (
+            <button type="submit" disabled={pending} aria-label={`Save designation for ${name}`}>
+              Save
+            </button>
+          )}
+        </form>
+      </td>
       <td>
         <select
           aria-label={`Role for ${name}`}
@@ -169,8 +251,37 @@ function UserRow({
         </select>
       </td>
       <td>
-        {user.isActive ? 'Active' : 'Disabled'}
-        {user.mustChangePassword && <span className="muted small"> · must change password</span>}
+        <select
+          aria-label={`Project for ${name}`}
+          value={user.project?.id ?? ''}
+          disabled={pending}
+          onChange={(e) => void update({ projectId: e.target.value || null })}
+        >
+          <option value="">No project</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </td>
+      <td>
+        {user.manager ? (
+          <>
+            {user.manager.displayName}
+            {user.manager.jobTitle && (
+              <span className="muted small person-email">{user.manager.jobTitle}</span>
+            )}
+          </>
+        ) : (
+          <span className="muted">—</span>
+        )}
+      </td>
+      <td>
+        <span className={user.isActive ? 'pill pill-good' : 'pill pill-bad'}>
+          {user.isActive ? 'Active' : 'Disabled'}
+        </span>
+        {user.mustChangePassword && <span className="muted small person-email">must change password</span>}
       </td>
       <td>{formatDate(user.createdAt)}</td>
       <td>
@@ -190,16 +301,21 @@ function UserRow({
 function UsersAdmin({ me }: { me: MeResponse }) {
   const { refresh } = useAuth();
   const [items, setItems] = useState<CompanyUser[]>([]);
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'more' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    void api<Page<CompanyUser>>('/admin/users?limit=25').then(
-      (page) => {
+    void Promise.all([
+      api<Page<CompanyUser>>('/admin/users?limit=25'),
+      api<{ items: ProjectSummary[] }>('/admin/projects'),
+    ]).then(
+      ([page, projectList]) => {
         if (!active) return;
         setItems(page.items);
+        setProjects(projectList.items);
         setNextCursor(page.nextCursor);
         setState('ready');
       },
@@ -238,8 +354,27 @@ function UsersAdmin({ me }: { me: MeResponse }) {
 
   return (
     <>
-      <h1>Users</h1>
-      <CreateUserForm onCreated={(user) => setItems((current) => [user, ...current])} />
+      <div className="page-heading">
+        <h1>Users</h1>
+        <p className="muted">
+          Accounts, roles, designations and projects at {me.organization.name}. A person&apos;s manager is the
+          manager of their project.
+        </p>
+      </div>
+      {projects.length > 0 && (
+        <ul className="project-chips" aria-label="Projects">
+          {projects.map((p) => (
+            <li key={p.id} className="card project-chip">
+              <strong>{p.name}</strong>
+              <span className="muted small">
+                {p.manager ? `Manager: ${p.manager.displayName}` : 'No manager'} · {p.memberCount}{' '}
+                {p.memberCount === 1 ? 'member' : 'members'}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <CreateUserForm projects={projects} onCreated={(user) => setItems((current) => [user, ...current])} />
       {state === 'loading' ? (
         <p aria-live="polite">Loading users…</p>
       ) : (
@@ -254,8 +389,10 @@ function UsersAdmin({ me }: { me: MeResponse }) {
                 <thead>
                   <tr>
                     <th scope="col">Name</th>
-                    <th scope="col">Email</th>
+                    <th scope="col">Designation</th>
                     <th scope="col">Role</th>
+                    <th scope="col">Project</th>
+                    <th scope="col">Manager</th>
                     <th scope="col">Status</th>
                     <th scope="col">Added</th>
                     <th scope="col">Action</th>
@@ -267,6 +404,7 @@ function UsersAdmin({ me }: { me: MeResponse }) {
                       key={u.membershipId}
                       user={u}
                       isSelf={u.user.id === me.user.id}
+                      projects={projects}
                       onChanged={replace}
                     />
                   ))}
@@ -292,7 +430,7 @@ export default function UsersPage() {
       {(me) => (
         <>
           <AppHeader me={me} />
-          <main className="page wide">
+          <main className="page xwide">
             {me.role === 'ADMIN' ? (
               <UsersAdmin me={me} />
             ) : (

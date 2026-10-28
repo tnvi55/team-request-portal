@@ -43,7 +43,9 @@ function Detail({ id, me }: { id: string; me: MeResponse }) {
       <section className="card" role="alert">
         <h1>Request not found</h1>
         <p>It does not exist, or you do not have access to it.</p>
-        <Link href="/requests">Back to requests</Link>
+        <Link href="/requests" className="back-link">
+          ← Back to requests
+        </Link>
       </section>
     );
   }
@@ -68,7 +70,22 @@ function Detail({ id, me }: { id: string; me: MeResponse }) {
           <dt>Category</dt>
           <dd>{r.category.toLowerCase()}</dd>
           <dt>Submitted by</dt>
-          <dd>{r.createdBy.displayName ?? 'Former member'}</dd>
+          <dd>
+            {r.createdBy.displayName ?? 'Former member'}
+            {r.requester?.jobTitle && <span className="muted small block">{r.requester.jobTitle}</span>}
+          </dd>
+          {r.requester && (
+            <>
+              <dt>Project</dt>
+              <dd>{r.requester.project?.name ?? '—'}</dd>
+              <dt>Their manager</dt>
+              <dd>
+                {r.requester.manager
+                  ? `${r.requester.manager.displayName}${r.requester.manager.jobTitle ? ` (${r.requester.manager.jobTitle})` : ''}`
+                  : '—'}
+              </dd>
+            </>
+          )}
           <dt>Submitted</dt>
           <dd>{formatDate(r.createdAt)}</dd>
           {r.reviewedAt && (
@@ -88,7 +105,9 @@ function Detail({ id, me }: { id: string; me: MeResponse }) {
         </dl>
         <h2>Description</h2>
         <p className="pre-wrap">{r.description}</p>
-        <Link href="/requests">Back to requests</Link>
+        <Link href="/requests" className="back-link">
+          ← Back to requests
+        </Link>
       </article>
       {canDecide && (
         <DecisionPanel

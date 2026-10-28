@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState, type FormEvent } from 'react';
+import { PasswordInput } from '../../components/password-input';
 import { describeError } from '../../lib/api';
 import { useAuth } from '../../lib/auth-context';
 
@@ -37,8 +38,12 @@ function LoginForm() {
   }
 
   return (
-    <main className="page narrow">
+    <main className="page narrow auth-page">
+      <p className="brand-mark" aria-hidden="true">
+        TR
+      </p>
       <h1>Sign in</h1>
+      <p className="muted">Team Request &amp; Approval Portal</p>
       {params.get('changed') === '1' && (
         <p className="good" role="status">
           Password changed. Sign in with your new password.
@@ -56,9 +61,8 @@ function LoginForm() {
           onChange={(e) => setEmail(e.target.value)}
         />
         <label htmlFor="password">Password</label>
-        <input
+        <PasswordInput
           id="password"
-          type="password"
           autoComplete="current-password"
           required
           maxLength={128}

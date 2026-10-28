@@ -73,6 +73,13 @@ export async function api<T>(path: string, options: { method?: string; body?: un
   return (await res.json()) as T;
 }
 
+/** Login only: how many tries remain before this email is paused for the rest of the window. */
+function attemptsLeft(remaining: number | undefined): string {
+  if (remaining === undefined) return '';
+  if (remaining === 0) return ' No attempts left: sign-in for this email is paused for up to 15 minutes.';
+  return ` ${remaining} attempt${remaining === 1 ? '' : 's'} left before sign-in is paused for 15 minutes.`;
+}
+
 /** A sentence for the user for any API failure. */
 export function describeError(error: unknown): string {
   if (!(error instanceof ApiRequestError))
@@ -82,7 +89,7 @@ export function describeError(error: unknown): string {
       return error.body?.details?.join('; ') ?? error.message;
     case 401:
       return error.body?.code === 'INVALID_CREDENTIALS'
-        ? 'Email or password is incorrect.'
+        ? `Email or password is incorrect.${attemptsLeft(error.body.attemptsRemaining)}`
         : 'Please sign in again.';
     case 403:
       return 'You do not have permission to do that.';

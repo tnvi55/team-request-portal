@@ -10,13 +10,16 @@ const LINKS = [
   { href: '/requests/new', label: 'New request' },
 ];
 
+const ADMIN_LINKS = [
+  { href: '/admin/users', label: 'Users' },
+  { href: '/admin/audit', label: 'Audit' },
+  { href: '/status', label: 'System status' },
+];
+
 /** Navigation only; the API still refuses non-admins on /admin endpoints. */
 export function AppNav({ role }: { role: MembershipRole }) {
   const pathname = usePathname();
-  const links =
-    role === 'ADMIN'
-      ? [...LINKS, { href: '/admin/users', label: 'Users' }, { href: '/admin/audit', label: 'Audit' }]
-      : LINKS;
+  const links = role === 'ADMIN' ? [...LINKS, ...ADMIN_LINKS] : LINKS;
   return (
     <nav aria-label="Main" className="app-nav">
       {links.map((link) => (

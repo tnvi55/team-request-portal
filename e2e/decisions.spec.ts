@@ -34,7 +34,7 @@ test('a manager approves a request and the admin sees it in the audit history', 
   // 4. The admin finds both events in the audit history.
   const admin = await browser.newPage();
   await signIn(admin, 'admin@birch.example');
-  await admin.getByRole('link', { name: 'Audit' }).click();
+  await admin.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Audit' }).click();
   await expect(admin.getByRole('heading', { name: 'Audit history' })).toBeVisible();
   const rows = admin.getByRole('row').filter({ hasText: title });
   await expect(rows.filter({ hasText: 'Approved' })).toHaveCount(1);

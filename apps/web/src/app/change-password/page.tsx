@@ -3,6 +3,7 @@
 import { ChangePasswordRequestSchema, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@trp/contracts';
 import { useState, type FormEvent } from 'react';
 import { AppHeader } from '../../components/app-header';
+import { PasswordInput } from '../../components/password-input';
 import { RequireAuth } from '../../components/require-auth';
 import { api, describeError } from '../../lib/api';
 
@@ -50,9 +51,8 @@ function ChangePasswordForm({ mustChange }: { mustChange: boolean }) {
       )}
       <form className="card form" onSubmit={(e) => void onSubmit(e)} noValidate>
         <label htmlFor="current">Current password</label>
-        <input
+        <PasswordInput
           id="current"
-          type="password"
           autoComplete="current-password"
           required
           maxLength={PASSWORD_MAX_LENGTH}
@@ -60,9 +60,8 @@ function ChangePasswordForm({ mustChange }: { mustChange: boolean }) {
           onChange={(e) => setCurrent(e.target.value)}
         />
         <label htmlFor="new">New password</label>
-        <input
+        <PasswordInput
           id="new"
-          type="password"
           autoComplete="new-password"
           required
           minLength={PASSWORD_MIN_LENGTH}
@@ -75,9 +74,8 @@ function ChangePasswordForm({ mustChange }: { mustChange: boolean }) {
           {PASSWORD_MIN_LENGTH}–{PASSWORD_MAX_LENGTH} characters. Spaces and passphrases are welcome.
         </p>
         <label htmlFor="confirm">Confirm new password</label>
-        <input
+        <PasswordInput
           id="confirm"
-          type="password"
           autoComplete="new-password"
           required
           maxLength={PASSWORD_MAX_LENGTH}

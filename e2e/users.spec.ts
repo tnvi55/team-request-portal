@@ -14,15 +14,21 @@ test('an admin creates an account, the user must change the password, and disabl
   // 1. The admin creates the account.
   const admin = await browser.newPage();
   await signIn(admin, 'admin@atlas.example');
-  await admin.getByRole('link', { name: 'Users' }).click();
+  await admin.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Users' }).click();
   await expect(admin.getByRole('heading', { name: 'Users', exact: true })).toBeVisible();
   await admin.getByLabel('Work email').fill(email);
   await admin.getByLabel('Display name').fill(name);
+  await admin.getByLabel('Designation', { exact: true }).fill('QA Engineer');
+  await admin
+    .getByLabel('Project', { exact: true })
+    .selectOption({ label: 'Vision Platform (Sofia Fernandes)' });
   await admin.getByLabel('Temporary password').fill(temporaryPassword);
   await admin.getByRole('button', { name: 'Create account' }).click();
   await expect(admin.getByText(`Account created for ${email}`)).toBeVisible();
   const row = admin.getByRole('row').filter({ hasText: email });
   await expect(row).toContainText('must change password');
+  // The project's manager is the new user's manager.
+  await expect(row).toContainText('Sofia Fernandes');
 
   // 2. The new user is sent to change the password before anything else.
   const user = await browser.newPage();
@@ -42,9 +48,9 @@ test('an admin creates an account, the user must change the password, and disabl
 
   // 4. The only admin cannot demote themselves.
   const self = admin.getByRole('row').filter({ hasText: '(you)' });
-  await self.getByRole('combobox').selectOption('MANAGER');
+  await self.getByLabel(/^Role for/).selectOption('MANAGER');
   await expect(self.getByRole('alert')).toContainText('at least one active admin');
-  await expect(self.getByRole('combobox')).toHaveValue('ADMIN');
+  await expect(self.getByLabel(/^Role for/)).toHaveValue('ADMIN');
 });
 
 async function signInWith(page: Page, email: string, password: string, landing: RegExp) {
