@@ -24,6 +24,11 @@ export interface ApiError {
   message: string;
   requestId: string;
   details?: string[];
+  /**
+   * INVALID_CREDENTIALS only: sign-in attempts left in the current window before 429. Counted per
+   * email whether or not an account exists, so it never reveals which emails are registered.
+   */
+  attemptsRemaining?: number;
 }
 
 /** Header carrying the session-bound CSRF token on unsafe requests. */

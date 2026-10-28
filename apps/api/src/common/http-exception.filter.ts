@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import type { ApiError, ErrorCode } from '@trp/contracts';
 import type { Request, Response } from 'express';
-import { ApiException, RateLimitedException } from './errors.js';
+import { ApiException, InvalidCredentialsException, RateLimitedException } from './errors.js';
 
 const DEFAULT_CODES: Partial<Record<number, ErrorCode>> = {
   [HttpStatus.BAD_REQUEST]: 'VALIDATION_FAILED',
@@ -41,6 +41,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
       status = exception.getStatus();
       body = { code: exception.code, message: exception.message, requestId };
       if (exception.details) body.details = exception.details;
+      if (exception instanceof InvalidCredentialsException && exception.attemptsRemaining !== undefined) {
+        body.attemptsRemaining = exception.attemptsRemaining;
+      }
       if (exception instanceof RateLimitedException) {
         res.setHeader('Retry-After', String(exception.retryAfterSeconds));
       }

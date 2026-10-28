@@ -1,6 +1,6 @@
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { hashPassword, verifyPassword } from '@trp/database';
-import type { MeResponse } from '@trp/contracts';
+import type { MeResponse, MemberProfile } from '@trp/contracts';
 import { randomBytes } from 'node:crypto';
 import { ApiException, InvalidCredentialsException, ServiceUnavailableError } from '../common/errors.js';
 import type { Principal } from '../common/request-context.js';
@@ -46,7 +46,7 @@ export class AuthService {
   ): Promise<{ principal: Principal; sessionVersion: number }> {
     const normalizedEmail = normalizeEmail(email);
     const window = this.config.LIMIT_WINDOW_SECONDS;
-    await this.limits.consume([
+    const attemptsRemaining = await this.limits.consume([
       {
         key: `login:acct:${keyHash(normalizedEmail)}`,
         limit: this.config.LOGIN_LIMIT_PER_ACCOUNT,
@@ -59,7 +59,7 @@ export class AuthService {
     // Always run one Argon2 verification so timing does not reveal whether the email exists.
     const valid = await verifyPassword(user?.passwordHash ?? (await this.dummyHash), password);
     const principal = user ? toPrincipal(user) : null;
-    if (!user || !valid || !principal) throw new InvalidCredentialsException();
+    if (!user || !valid || !principal) throw new InvalidCredentialsException(attemptsRemaining);
     return { principal, sessionVersion: user.sessionVersion };
   }
 
@@ -143,12 +143,15 @@ function toPrincipal(user: UserWithMembership): Principal | null {
   };
 }
 
+const NO_PROFILE: MemberProfile = { jobTitle: null, project: null, manager: null, managedProjects: [] };
+
 /** Explicit response DTO: never the database row (no passwordHash, no sessionVersion). */
-export function toMeResponse(p: Principal): MeResponse {
+export function toMeResponse(p: Principal, profile: MemberProfile | null): MeResponse {
   return {
     user: { id: p.userId, email: p.email, displayName: p.displayName },
     organization: { id: p.organizationId, slug: p.organizationSlug, name: p.organizationName },
     role: p.role,
     mustChangePassword: p.mustChangePassword,
+    profile: profile ?? NO_PROFILE,
   };
 }

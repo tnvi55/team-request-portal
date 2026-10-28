@@ -1,7 +1,7 @@
 // M6 gate: only current admins manage their own company's members; changes reach existing
 // sessions on their next call; account writes and their audit commit together; and no
 // interleaving of concurrent admin changes can leave a company without an active admin.
-import type { CompanyUser, Page } from '@trp/contracts';
+import type { CompanyUser, MeResponse, Page } from '@trp/contracts';
 import { hashPassword, MembershipRole } from '@trp/database';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PASSWORD, withControl } from './support/fixture.js';
@@ -319,5 +319,140 @@ describe('concurrency: the last active admin is protected', () => {
       expect(await activeBirchAdmins()).toBe(1);
     }
     await resetBirchAdmins();
+  });
+});
+
+// M9: designations and projects. A company can have several projects, each with its own manager;
+// a member's current manager is their project's manager. Display data only: it grants nothing.
+describe('projects, designations and current manager', () => {
+  const ids = {} as Record<'atlasArm' | 'atlasVision' | 'cedarPortal', string>;
+
+  beforeAll(async () => {
+    const manager = await membershipOf(EMAIL.atlasManager);
+    const cedarManager = await membershipOf(EMAIL.cedarManager);
+    await withControl(async (c) => {
+      await c.membership.update({ where: { id: manager.id }, data: { jobTitle: 'Engineering Manager' } });
+      const project = (organizationId: string, name: string, managerMembershipId: string | null) =>
+        c.project.create({ data: { organizationId, name, managerMembershipId } });
+      ids.atlasArm = (await project(ORGS.atlas, 'Warehouse Arm', manager.id)).id;
+      ids.atlasVision = (await project(ORGS.atlas, 'Vision', null)).id;
+      ids.cedarPortal = (await project(ORGS.cedar, 'Patient Portal', cedarManager.id)).id;
+    });
+  });
+
+  it('an admin lists only their own company projects, with each manager', async () => {
+    const res = await agents.admin.get('/api/v1/admin/projects').expect(200);
+    expect(res.body.items).toEqual([
+      { id: ids.atlasVision, name: 'Vision', manager: null, memberCount: 0 },
+      {
+        id: ids.atlasArm,
+        name: 'Warehouse Arm',
+        manager: { displayName: 'atlasManager', jobTitle: 'Engineering Manager' },
+        memberCount: 0,
+      },
+    ]);
+    expect((await agents.manager.get('/api/v1/admin/projects')).status).toBe(403);
+    expect((await agents.employee.get('/api/v1/admin/projects')).status).toBe(403);
+  });
+
+  it('assigns a designation and project; the project manager becomes the current manager', async () => {
+    const employee = await membershipOf(EMAIL.atlasEmployee);
+    const res = await patch(agents.admin, employee.id, {
+      jobTitle: '  QA Engineer ',
+      projectId: ids.atlasArm,
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      jobTitle: 'QA Engineer',
+      project: { id: ids.atlasArm, name: 'Warehouse Arm' },
+      manager: { displayName: 'atlasManager', jobTitle: 'Engineering Manager' },
+      role: 'EMPLOYEE',
+    });
+    const events = await controlEvents(employee.id);
+    expect(events.at(-1)).toMatchObject({
+      action: 'MEMBER_PROFILE_CHANGED',
+      metadata: { fields: 'jobTitle,projectId' },
+    });
+
+    // The employee sees it on /auth/me; the manager sees the project they manage.
+    const me = (await agents.employee.get('/api/v1/auth/me').expect(200)).body as MeResponse;
+    expect(me.profile).toEqual({
+      jobTitle: 'QA Engineer',
+      project: { id: ids.atlasArm, name: 'Warehouse Arm' },
+      manager: { displayName: 'atlasManager', jobTitle: 'Engineering Manager' },
+      managedProjects: [],
+    });
+    const manager = (await agents.manager.get('/api/v1/auth/me').expect(200)).body as MeResponse;
+    expect(manager.profile.managedProjects).toEqual([{ id: ids.atlasArm, name: 'Warehouse Arm' }]);
+    expect(manager.profile.manager).toBeNull();
+  });
+
+  it('a request detail shows the submitter profile to a reviewer', async () => {
+    const created = await send(t, agents.employee, 'post', '/api/v1/requests', {
+      title: 'Profile on detail',
+      description: 'A request to show the submitter profile.',
+      category: 'EQUIPMENT',
+    });
+    expect(created.status).toBe(201);
+    const detail = (await agents.manager.get(`/api/v1/requests/${created.body.id}`).expect(200)).body;
+    expect(detail.requester).toMatchObject({
+      jobTitle: 'QA Engineer',
+      project: { name: 'Warehouse Arm' },
+      manager: { displayName: 'atlasManager' },
+    });
+  });
+
+  it("refuses another company's project on update and create, changing nothing", async () => {
+    const employee = await membershipOf(EMAIL.atlasEmployee);
+    const res = await patch(agents.admin, employee.id, { projectId: ids.cedarPortal });
+    expect(res.status).toBe(400);
+    expect((await membershipOf(EMAIL.atlasEmployee)).projectId).toBe(ids.atlasArm);
+
+    const create = await send(t, agents.admin, 'post', '/api/v1/admin/users', {
+      email: 'cross.project@atlas.req',
+      displayName: 'Cross Project',
+      role: 'EMPLOYEE',
+      projectId: ids.cedarPortal,
+      temporaryPassword: 'temporary pass 1234',
+    });
+    expect(create.status).toBe(400);
+    const exists = await withControl((c) =>
+      c.user.count({ where: { normalizedEmail: 'cross.project@atlas.req' } }),
+    );
+    expect(exists).toBe(0);
+  });
+
+  it('the database itself refuses a cross-company project (composite foreign key)', async () => {
+    const employee = await membershipOf(EMAIL.atlasEmployee);
+    await expect(
+      withControl((c) =>
+        c.membership.update({ where: { id: employee.id }, data: { projectId: ids.cedarPortal } }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('creates an account with a designation and project, and clears them with null', async () => {
+    const res = await send(t, agents.admin, 'post', '/api/v1/admin/users', {
+      email: 'designer@atlas.req',
+      displayName: 'Dana Designer',
+      role: 'EMPLOYEE',
+      jobTitle: 'Product Designer',
+      projectId: ids.atlasVision,
+      temporaryPassword: 'temporary pass 1234',
+    });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({
+      jobTitle: 'Product Designer',
+      project: { id: ids.atlasVision, name: 'Vision' },
+      manager: null, // Vision has no manager yet
+    });
+    const cleared = await patch(agents.admin, res.body.membershipId, { jobTitle: null, projectId: null });
+    expect(cleared.body).toMatchObject({ jobTitle: null, project: null, manager: null });
+  });
+
+  it('rejects a blank designation and a non-admin profile change', async () => {
+    const employee = await membershipOf(EMAIL.atlasEmployee);
+    expect((await patch(agents.admin, employee.id, { jobTitle: ' ' })).status).toBe(400);
+    expect((await patch(agents.manager, employee.id, { jobTitle: 'Boss' })).status).toBe(403);
   });
 });

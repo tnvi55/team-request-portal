@@ -4,7 +4,7 @@ import { decodeCursor, encodeCursor, type CursorBinding } from '../common/cursor
 import { APP_CONFIG, type AppConfig } from '../config/env.js';
 import { requireRole, type TenantContext } from '../tenant/tenant-context.js';
 import { TenantDbService } from '../tenant/tenant-db.service.js';
-import { PeopleService } from './people.service.js';
+import { PeopleService } from '../people/people.service.js';
 
 /** Read side of the request audit trail (writes happen inside the request transactions). */
 @Injectable()

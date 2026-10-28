@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { MemberProfile } from './people.js';
 
 export const REQUEST_CATEGORIES = ['EQUIPMENT', 'SOFTWARE', 'OTHER'] as const;
 export type RequestCategory = (typeof REQUEST_CATEGORIES)[number];
@@ -65,6 +66,8 @@ export interface RequestDetail extends RequestSummary {
   reviewedBy: PersonRef | null;
   reviewComment: string | null;
   version: number;
+  /** The submitter's designation, current project and manager; null if no longer a member. */
+  requester: MemberProfile | null;
 }
 
 /** Cursor page: no total count (that would cost an extra query per page). */

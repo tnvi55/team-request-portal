@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { PeopleModule } from '../people/people.module.js';
 import { ApiRateLimitGuard } from './api-rate-limit.guard.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
@@ -7,6 +8,7 @@ import { CsrfGuard } from './csrf.guard.js';
 import { SessionAuthGuard } from './session-auth.guard.js';
 
 @Module({
+  imports: [PeopleModule],
   controllers: [AuthController],
   providers: [
     AuthService,

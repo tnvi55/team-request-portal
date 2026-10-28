@@ -16,7 +16,7 @@ import { APP_CONFIG, type AppConfig } from '../config/env.js';
 import { isReviewer, requireRole, type TenantContext } from '../tenant/tenant-context.js';
 import { TenantDbService } from '../tenant/tenant-db.service.js';
 import { DashboardCacheService } from './dashboard-cache.service.js';
-import { PeopleService } from './people.service.js';
+import { PeopleService } from '../people/people.service.js';
 
 /** The tenant row shape the service maps from (only the fields it reads). */
 interface RequestRow {
@@ -258,7 +258,10 @@ export class RequestsService {
 
   private async toDetail(ctx: TenantContext, row: RequestRow): Promise<RequestDetail> {
     const ids = [row.createdByUserId, ...(row.reviewedByUserId ? [row.reviewedByUserId] : [])];
-    const names = await this.people.displayNames(ctx.tenantId, ids);
+    const [names, requester] = await Promise.all([
+      this.people.displayNames(ctx.tenantId, ids),
+      this.people.profile(ctx.tenantId, row.createdByUserId),
+    ]);
     return {
       ...toSummary(row, names),
       description: row.description,
@@ -269,6 +272,7 @@ export class RequestsService {
         : null,
       reviewComment: row.reviewComment,
       version: row.version,
+      requester,
     };
   }
 }

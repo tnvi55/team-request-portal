@@ -19,9 +19,12 @@ export class UnauthenticatedException extends ApiException {
   }
 }
 
-/** One message for unknown email, wrong password and disabled accounts: no account enumeration. */
+/**
+ * One message for unknown email, wrong password and disabled accounts: no account enumeration.
+ * attemptsRemaining comes from the per-email limiter, which counts unknown emails the same way.
+ */
 export class InvalidCredentialsException extends ApiException {
-  constructor() {
+  constructor(readonly attemptsRemaining?: number) {
     super(HttpStatus.UNAUTHORIZED, 'INVALID_CREDENTIALS', 'Email or password is incorrect');
   }
 }

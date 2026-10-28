@@ -21,9 +21,13 @@ export interface LimitRule {
 export class RateLimitService {
   constructor(private readonly redis: RedisService) {}
 
-  /** Counts one attempt against every rule; throws 429 if any rule is now over its limit. */
-  async consume(rules: LimitRule[]): Promise<void> {
+  /**
+   * Counts one attempt against every rule; throws 429 if any rule is now over its limit.
+   * Returns how many more attempts the tightest rule allows in its current window.
+   */
+  async consume(rules: LimitRule[]): Promise<number> {
     let retryAfter = 0;
+    let remaining = Number.POSITIVE_INFINITY;
     for (const rule of rules) {
       const key = `${this.redis.prefix}rl:${rule.key}`;
       let count: number;
@@ -41,8 +45,10 @@ export class RateLimitService {
         throw new ServiceUnavailableError();
       }
       if (count > rule.limit) retryAfter = Math.max(retryAfter, ttl > 0 ? ttl : rule.windowSeconds);
+      remaining = Math.min(remaining, Math.max(rule.limit - count, 0));
     }
     if (retryAfter > 0) throw new RateLimitedException(retryAfter);
+    return remaining;
   }
 }
 

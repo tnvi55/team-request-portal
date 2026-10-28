@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { MemberProfile } from './people.js';
 
 /** Password policy (plan.md / OWASP): length only, any characters, spaces and Unicode allowed. */
 export const PASSWORD_MIN_LENGTH = 12;
@@ -44,4 +45,6 @@ export interface MeResponse {
   organization: { id: string; slug: string; name: string };
   role: MembershipRole;
   mustChangePassword: boolean;
+  /** Designation, current project and current manager (display only). */
+  profile: MemberProfile;
 }

@@ -363,8 +363,14 @@ describe('shared rate limits (Redis)', () => {
     const limited = await startApp({ LOGIN_LIMIT_PER_ACCOUNT: '3' });
     try {
       for (let i = 0; i < 3; i += 1) {
-        expect((await login(limited.agent(), USERS.employee, 'wrong password value')).status).toBe(401);
+        const res = await login(limited.agent(), USERS.employee, 'wrong password value');
+        expect(res.status).toBe(401);
+        // The form can say how many tries are left before the account's window locks.
+        expect(res.body.attemptsRemaining).toBe(2 - i);
       }
+      // An unknown email is counted the same way, so the number reveals nothing about accounts.
+      const unknown = await login(limited.agent(), 'nobody-limited@atlas.test');
+      expect(unknown.body).toMatchObject({ code: 'INVALID_CREDENTIALS', attemptsRemaining: 2 });
       const blocked = await login(limited.agent(), USERS.employee); // correct password, still blocked
       expect(blocked.status).toBe(429);
       expect(blocked.body.code).toBe('RATE_LIMITED');

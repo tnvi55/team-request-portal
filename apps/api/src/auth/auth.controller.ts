@@ -11,6 +11,7 @@ import type { Request, Response } from 'express';
 import { randomBytes } from 'node:crypto';
 import type { Principal } from '../common/request-context.js';
 import { APP_CONFIG, type AppConfig } from '../config/env.js';
+import { PeopleService } from '../people/people.service.js';
 import { RateLimitService } from '../redis/rate-limit.service.js';
 import { AuthService, toMeResponse } from './auth.service.js';
 import { AllowPasswordChangePending, CurrentPrincipal, Public } from './decorators.js';
@@ -30,6 +31,7 @@ export class AuthController {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly auth: AuthService,
     private readonly limits: RateLimitService,
+    private readonly people: PeopleService,
   ) {}
 
   /**
@@ -76,13 +78,13 @@ export class AuthController {
     req.session.absoluteExpiresAt = now + this.config.SESSION_ABSOLUTE_SECONDS * 1000;
     req.session.csrfToken = newCsrfToken();
     await saveSession(req);
-    return toMeResponse(principal);
+    return this.meResponse(principal);
   }
 
   @AllowPasswordChangePending()
   @Get('me')
-  me(@CurrentPrincipal() principal: Principal): MeResponse {
-    return toMeResponse(principal);
+  me(@CurrentPrincipal() principal: Principal): Promise<MeResponse> {
+    return this.meResponse(principal);
   }
 
   @AllowPasswordChangePending()
@@ -106,5 +108,9 @@ export class AuthController {
     await this.auth.changePassword(principal, body.currentPassword, body.newPassword, req.requestId);
     await destroySession(req);
     res.clearCookie(SESSION_COOKIE, sessionCookieOptions(this.config));
+  }
+
+  private async meResponse(principal: Principal): Promise<MeResponse> {
+    return toMeResponse(principal, await this.people.profile(principal.organizationId, principal.userId));
   }
 }
